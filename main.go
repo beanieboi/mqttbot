@@ -54,9 +54,11 @@ func main() {
 
 	mqttClient = NewMQTTClient(host, username, password)
 
-	for range time.Tick(5 * time.Minute) {
-		NextbikeRunner()
-	}
+	go func() {
+		for range time.Tick(5 * time.Minute) {
+			NextbikeRunner()
+		}
+	}()
 
 	r := mux.NewRouter()
 	r.Use(middleware.RequestID)
