@@ -46,7 +46,7 @@ func main() {
 	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	logger = zap.New(zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderCfg),
+		zapcore.NewConsoleEncoder(encoderCfg),
 		zapcore.Lock(os.Stdout),
 		atom,
 	))
