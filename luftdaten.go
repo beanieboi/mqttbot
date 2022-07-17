@@ -1,5 +1,70 @@
 package main
 
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+type LuftdatenData struct {
+	EspId           string                 `json:"esp8266id"`
+	SoftwareVersion string                 `json:"software_version"`
+	SensorData      []LuftdatenMeasurement `json:"sensordatavalues"`
+}
+
+type LuftdatenMeasurement struct {
+	ValueType string  `json:"value_type"`
+	Value     float64 `json:"value,string"`
+}
+
+func luftdatenHandler(w http.ResponseWriter, r *http.Request) {
+	var d LuftdatenData
+	err := json.NewDecoder(r.Body).Decode(&d)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	for _, measurement := range d.SensorData {
+		topic := fmt.Sprintf("home/luftdaten/%s", measurement.ValueType)
+		token := mqttClient.Publish(topic, byte(0), true, fmt.Sprintf("%.2f", measurement.Value))
+		token.Wait()
+	}
+	pm25 := findPM25(d.SensorData)
+	token := mqttClient.Publish("home/luftdaten/aqi", byte(0), true, fmt.Sprintf("%.2f", calcAQI(pm25)))
+	token.Wait()
+	token = mqttClient.Publish("home/luftdaten/aqi_human", byte(0), true, humanaqi(calcAQI(pm25)))
+	token.Wait()
+	token = mqttClient.Publish("home/luftdaten/update_date", byte(0), true, time.Now().Format(time.RFC3339))
+	token.Wait()
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func findPM25(sensordata []LuftdatenMeasurement) float64 {
+	var pm25 float64
+	for _, measurement := range sensordata {
+		if measurement.ValueType == "SDS_P2" {
+			pm25 = measurement.Value
+		}
+	}
+	return pm25
+}
+
+// {
+// 	"esp8266id": "16659171",
+// 	"software_version": "NRZ-2020-133",
+// 	"sensordatavalues":[
+// 		{"value_type":"SDS_P1","value":"1.10"},
+// 		{"value_type":"SDS_P2","value":"1.00"},
+// 		{"value_type":"samples","value":"5032003"},
+// 		{"value_type":"min_micro","value":"28"},
+// 		{"value_type":"max_micro","value":"20253"},
+// 		{"value_type":"interval","value":"145000"},
+// 		{"value_type":"signal","value":"-79"}
+// 	]
+// }
+
 func humanaqi(aqi float64) string {
 	if aqi >= 401.0 {
 		return "Hazardous"
