@@ -69,7 +69,7 @@ func main() {
 
 	address := fmt.Sprintf(":%s", port)
 	logger.Info("ready to receive requests", zap.String("address", address))
-	err := http.ListenAndServe(address, handlers.LoggingHandler(os.Stdout, r))
+	err := http.ListenAndServe(address, r)
 
 	if err != nil {
 		log.Panic("Unable to start server ", err)
