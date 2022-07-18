@@ -62,24 +62,28 @@ func CityflitzerRunner() {
 
 	res, err := client.Do(req)
 	if err != nil {
-		logger.Panic("error fetching JSON", zap.Error(err))
+		logger.Error("error fetching JSON", zap.Error(err))
+		return
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		logger.Panic("error reading body", zap.Error(err))
+		logger.Error("error reading body", zap.Error(err))
+		return
 	}
 
 	err = res.Body.Close()
 	if err != nil {
-		logger.Panic("error closing body", zap.Error(err))
+		logger.Error("error closing body", zap.Error(err))
+		return
 	}
 
 	var cfd CityflitzerData
 
 	err = json.Unmarshal(body, &cfd)
 	if err != nil {
-		logger.Panic("error unmarshalling JSON", zap.Error(err))
+		logger.Error("error unmarshalling JSON", zap.Error(err))
+		return
 	}
 
 	foundNearby := false
