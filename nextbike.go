@@ -31,6 +31,10 @@ type NextbikeData struct {
 }
 
 func NextbikeRunner() {
+	myStation := 4103
+	myCountry := "Germany"
+	myCity := "Leipzig"
+
 	eCargoBikes := []string{"20093", "20094", "20095", "20096"}
 
 	ctx := context.Background()
@@ -66,11 +70,11 @@ func NextbikeRunner() {
 	found := false
 
 	for _, c := range nbd.Countries {
-		if c.Name == "Germany" {
+		if c.Name == myCountry {
 			for _, city := range c.Cities {
-				if city.Name == "Leipzig" {
+				if city.Name == myCity {
 					for _, place := range city.Places {
-						if place.Number == 4103 {
+						if place.Number == myStation {
 							for _, bn := range place.BikesNumbers {
 								for _, e := range eCargoBikes {
 									if e == bn {
