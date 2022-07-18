@@ -55,8 +55,9 @@ func main() {
 	mqttClient = NewMQTTClient(host, username, password)
 
 	go func() {
-		for range time.Tick(5 * time.Minute) {
-			NextbikeRunner()
+		for range time.Tick(2 * time.Minute) {
+			go NextbikeRunner()
+			go CityflitzerRunner()
 		}
 	}()
 
