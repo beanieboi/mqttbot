@@ -31,7 +31,7 @@ type NextbikeData struct {
 }
 
 func NextbikeRunner() {
-	eCargoBikes := []string{"20094", "20096"}
+	eCargoBikes := []string{"20093", "20094", "20095", "20096"}
 
 	ctx := context.Background()
 	client := &http.Client{
