@@ -53,7 +53,6 @@ func CityflitzerRunner() {
 	form.Add("lon1", "0.76371300")
 	form.Add("lon2", "21.527873")
 	form.Add("requestTimestamp", strconv.FormatInt(time.Now().UnixMilli(), 10))
-
 	form.Add("platform", "tawebsite")
 	form.Add("version", "10000000")
 	form.Add("tracking", "off")
