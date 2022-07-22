@@ -11,6 +11,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type NextbikeHomeStation struct {
+	ID      int
+	Country string
+	City    string
+}
+
 type NextbikePlace struct {
 	Number       int
 	BikesNumbers []string `json:"bike_numbers"`
@@ -31,9 +37,11 @@ type NextbikeData struct {
 }
 
 func NextbikeRunner() {
-	myStation := 4103
-	myCountry := "Germany"
-	myCity := "Leipzig"
+	home := NextbikeHomeStation{
+		ID:      4103,
+		Country: "Germany",
+		City:    "Leipzig",
+	}
 
 	eCargoBikes := []string{"20093", "20094", "20095", "20096"}
 
@@ -74,11 +82,11 @@ func NextbikeRunner() {
 	found := false
 
 	for _, c := range nbd.Countries {
-		if c.Name == myCountry {
+		if c.Name == home.Country {
 			for _, city := range c.Cities {
-				if city.Name == myCity {
+				if city.Name == home.City {
 					for _, place := range city.Places {
-						if place.Number == myStation {
+						if place.Number == home.ID {
 							for _, bn := range place.BikesNumbers {
 								for _, e := range eCargoBikes {
 									if e == bn {

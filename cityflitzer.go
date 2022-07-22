@@ -15,6 +15,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type CityflitzerHomeStation struct {
+	Position *geo.Point
+	Radius   float64
+}
+
 type CityflitzerGeoPosition struct {
 	Longitude float64 `json:"lon,string"`
 	Latitude  float64 `json:"lat,string"`
@@ -38,8 +43,10 @@ type CityflitzerData struct {
 }
 
 func CityflitzerRunner() {
-	home := geo.NewPoint(51.3201768, 12.3660048)
-	radius := 0.5
+	home := CityflitzerHomeStation{
+		Position: geo.NewPoint(51.3201768, 12.3660048),
+		Radius:   0.5,
+	}
 
 	ctx := context.Background()
 	client := &http.Client{
@@ -92,8 +99,8 @@ func CityflitzerRunner() {
 	for _, car := range cfd.Container.Vehicles {
 		if car.DriveMode == "cF" && car.Available {
 			carPosition := geo.NewPoint(car.Position.Latitude, car.Position.Longitude)
-			dist := home.GreatCircleDistance(carPosition)
-			if dist < radius {
+			dist := home.Position.GreatCircleDistance(carPosition)
+			if dist < home.Radius {
 				foundNearby = true
 			}
 		}
