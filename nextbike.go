@@ -43,7 +43,7 @@ func NextbikeRunner() {
 		City:    "Leipzig",
 	}
 
-	eCargoBikes := []string{"20093", "20094", "20095", "20096"}
+	eCargoBikes := []string{"20091", "20095", "20096", "20111", "20118", "20119"}
 
 	ctx := context.Background()
 	client := &http.Client{
