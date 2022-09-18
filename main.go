@@ -50,7 +50,7 @@ func main() {
 		zapcore.Lock(os.Stdout),
 		atom,
 	))
-	defer logger.Sync()
+	defer logger.Sync() //nolint:errcheck
 
 	mqttClient = NewMQTTClient(host, username, password)
 
