@@ -101,9 +101,9 @@ func NextbikeRunner() {
 		}
 	}
 
-	token := mqttClient.Publish("home/nextbike/e_cargo_available", byte(0), true, fmt.Sprintf("%t", found))
+	token := mqttClient.Publish("mobility/nextbike/e_cargo_available", byte(0), true, fmt.Sprintf("%t", found))
 	token.Wait()
-	token = mqttClient.Publish("home/nextbike/update_date", byte(0), true, time.Now().Format(time.RFC3339))
+	token = mqttClient.Publish("mobility/nextbike/update_date", byte(0), true, time.Now().Format(time.RFC3339))
 	token.Wait()
 
 	logger.Info("finished checking Nextbike and sent result to MQTT", zap.Bool("found", found))

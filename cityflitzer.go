@@ -106,9 +106,9 @@ func CityflitzerRunner() {
 		}
 	}
 
-	token := mqttClient.Publish("home/cityflitzer/cityflitzer_nearby", byte(0), true, fmt.Sprintf("%t", foundNearby))
+	token := mqttClient.Publish("mobility/cityflitzer/cityflitzer_nearby", byte(0), true, fmt.Sprintf("%t", foundNearby))
 	token.Wait()
-	token = mqttClient.Publish("home/cityflitzer/update_date", byte(0), true, time.Now().Format(time.RFC3339))
+	token = mqttClient.Publish("mobility/cityflitzer/update_date", byte(0), true, time.Now().Format(time.RFC3339))
 	token.Wait()
 
 	logger.Info("finished checking Cityflitzer and sent result to MQTT", zap.Bool("foundNearby", foundNearby))

@@ -26,16 +26,16 @@ func luftdatenHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	for _, measurement := range d.SensorData {
-		topic := fmt.Sprintf("home/luftdaten/%s", measurement.ValueType)
+		topic := fmt.Sprintf("home/balcony/airrohr/%s", measurement.ValueType)
 		token := mqttClient.Publish(topic, byte(0), true, fmt.Sprintf("%.2f", measurement.Value))
 		token.Wait()
 	}
 	pm25 := findPM25(d.SensorData)
-	token := mqttClient.Publish("home/luftdaten/aqi", byte(0), true, fmt.Sprintf("%.2f", calcAQI(pm25)))
+	token := mqttClient.Publish("home/balcony/airrohr/aqi", byte(0), true, fmt.Sprintf("%.2f", calcAQI(pm25)))
 	token.Wait()
-	token = mqttClient.Publish("home/luftdaten/aqi_human", byte(0), true, humanaqi(calcAQI(pm25)))
+	token = mqttClient.Publish("home/balcony/airrohr/aqi_human", byte(0), true, humanaqi(calcAQI(pm25)))
 	token.Wait()
-	token = mqttClient.Publish("home/luftdaten/update_date", byte(0), true, time.Now().Format(time.RFC3339))
+	token = mqttClient.Publish("home/balcony/airrohr/update_date", byte(0), true, time.Now().Format(time.RFC3339))
 	token.Wait()
 
 	w.WriteHeader(http.StatusOK)
