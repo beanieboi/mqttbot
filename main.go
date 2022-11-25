@@ -1,16 +1,10 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"time"
 
-	"github.com/beanieboi/mqttbot/middleware"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -60,19 +54,4 @@ func main() {
 			go CityflitzerRunner()
 		}
 	}()
-
-	r := mux.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger(logger))
-
-	r.Use(handlers.RecoveryHandler())
-	r.HandleFunc("/", luftdatenHandler).Methods("POST")
-
-	address := fmt.Sprintf(":%s", port)
-	logger.Info("ready to receive requests", zap.String("address", address))
-	err := http.ListenAndServe(address, r)
-
-	if err != nil {
-		log.Panic("Unable to start server ", err)
-	}
 }
