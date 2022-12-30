@@ -48,9 +48,9 @@ func main() {
 	}()
 
 	go func() {
-		for range time.Tick(2 * time.Second) {
+		for range time.Tick(2 * time.Minute) {
 			go NextbikeRunner()
-			// go CityflitzerRunner()
+			go CityflitzerRunner()
 		}
 	}()
 
