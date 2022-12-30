@@ -1,18 +1,25 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	log "github.com/sirupsen/logrus"
 )
 
 var mqttClient MQTT.Client
-var logger *zap.Logger
 
 func main() {
+	log.SetFormatter(&log.JSONFormatter{})
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	done := make(chan bool, 1)
+
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"
@@ -33,25 +40,21 @@ func main() {
 		panic("password needed")
 	}
 
-	atom := zap.NewAtomicLevel()
-
-	encoderCfg := zap.NewProductionEncoderConfig()
-	encoderCfg.TimeKey = "timestamp"
-	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
-
-	logger = zap.New(zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderCfg),
-		zapcore.Lock(os.Stdout),
-		atom,
-	))
-	defer logger.Sync() //nolint:errcheck
-
 	mqttClient = NewMQTTClient(host, username, password)
 
 	go func() {
-		for range time.Tick(2 * time.Minute) {
+		<-sigs
+		done <- true
+	}()
+
+	go func() {
+		for range time.Tick(2 * time.Second) {
 			go NextbikeRunner()
-			go CityflitzerRunner()
+			// go CityflitzerRunner()
 		}
 	}()
+
+	fmt.Println("MQTT bot running...")
+	<-done
+	fmt.Println("MQTT bot shutting down...")
 }

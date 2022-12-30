@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
+	log "github.com/sirupsen/logrus"
 )
 
 type NextbikeHomeStation struct {
@@ -55,19 +55,25 @@ func NextbikeRunner() {
 
 	res, err := client.Do(req)
 	if err != nil {
-		logger.Error("error fetching JSON", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Nextbike request failed")
 		return
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		logger.Error("error reading body", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Nextbike request failed")
 		return
 	}
 
 	err = res.Body.Close()
 	if err != nil {
-		logger.Error("error closing body", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Nextbike request failed")
 		return
 	}
 
@@ -75,7 +81,9 @@ func NextbikeRunner() {
 
 	err = json.Unmarshal(body, &nbd)
 	if err != nil {
-		logger.Error("error unmarshalling JSON", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Nextbike request failed")
 		return
 	}
 
@@ -106,5 +114,7 @@ func NextbikeRunner() {
 	token = mqttClient.Publish("mobility/nextbike/update_date", byte(0), true, time.Now().Format(time.RFC3339))
 	token.Wait()
 
-	logger.Info("finished checking Nextbike and sent result to MQTT", zap.Bool("found", found))
+	log.WithFields(log.Fields{
+		"found": found,
+	}).Info("finished checking Nextbike and sent result to MQTT")
 }

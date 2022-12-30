@@ -6,103 +6,71 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
 	"time"
 
-	geo "github.com/kellydunn/golang-geo"
-	"go.uber.org/zap"
+	log "github.com/sirupsen/logrus"
 )
 
-type CityflitzerHomeStation struct {
-	Position *geo.Point
-	Radius   float64
-}
-
-type CityflitzerGeoPosition struct {
-	Longitude float64 `json:"lon,string"`
-	Latitude  float64 `json:"lat,string"`
-	Show      bool    `json:"showMap"`
-}
-
 type CityflitzerVehicle struct {
-	Name         string                 `json:"name"`
-	LicensePlate string                 `json:"licensePlate"`
-	Available    bool                   `json:"available"`
-	DriveMode    string                 `json:"driveMode"`
-	Position     CityflitzerGeoPosition `json:"geoPos,omitempty"`
-}
-
-type CityflitzerVehicles struct {
-	Vehicles []CityflitzerVehicle `json:"data"`
-}
-
-type CityflitzerData struct {
-	Container CityflitzerVehicles `json:"getVehicleCacheByGeoBounds"`
+	Distance float64 `json:"distance"`
 }
 
 func CityflitzerRunner() {
-	home := CityflitzerHomeStation{
-		Position: geo.NewPoint(51.3201768, 12.3660048),
-		Radius:   0.5,
-	}
-
+	maxDistance := 500.0
 	ctx := context.Background()
 	client := &http.Client{
 		Transport: http.DefaultTransport,
 		Timeout:   time.Second * 5,
 	}
 
-	form := url.Values{}
-	form.Add("lat1", "49.0305875")
-	form.Add("lat2", "53.9140125")
-	form.Add("lon1", "0.76371300")
-	form.Add("lon2", "21.527873")
-	form.Add("requestTimestamp", strconv.FormatInt(time.Now().UnixMilli(), 10))
-	form.Add("platform", "tawebsite")
-	form.Add("version", "10000000")
-	form.Add("tracking", "off")
+	lat := 51.32032033409821
+	long := 12.36535400104385
+	start := time.Now().Truncate(time.Hour).UTC()
+	end := start.Add(time.Hour).UTC()
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", "https://sal2.teilauto.net/api/getVehicleCacheByGeoBounds", strings.NewReader(form.Encode()))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	uri := fmt.Sprintf("https://de1.cantamen.de/casirest/v3/pointsofinterest?&placeIsFixed=false&lat=%f&lng=%f&range=30000&start=%s&end=%s&sort=distance", lat, long, start.Format(time.RFC3339), end.Format(time.RFC3339))
+	req, _ := http.NewRequestWithContext(ctx, "GET", uri, nil)
+	req.Header.Add("X-API-KEY", "45d38969-0086-978d-dc06-7959b0d2fe79")
 
 	res, err := client.Do(req)
 	if err != nil {
-		logger.Error("error fetching JSON", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Cityflitzer request failed")
 		return
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		logger.Error("error reading body", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Cityflitzer request failed")
 		return
 	}
 
 	err = res.Body.Close()
 	if err != nil {
-		logger.Error("error closing body", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Cityflitzer request failed")
 		return
 	}
 
-	var cfd CityflitzerData
+	var vehicles []CityflitzerVehicle
 
-	err = json.Unmarshal(body, &cfd)
+	err = json.Unmarshal(body, &vehicles)
 	if err != nil {
-		logger.Error("error unmarshalling JSON", zap.Error(err))
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Cityflitzer request failed")
 		return
 	}
 
 	foundNearby := false
-
-	// filter cityflitzer
-	for _, car := range cfd.Container.Vehicles {
-		if car.DriveMode == "cF" && car.Available {
-			carPosition := geo.NewPoint(car.Position.Latitude, car.Position.Longitude)
-			dist := home.Position.GreatCircleDistance(carPosition)
-			if dist < home.Radius {
-				foundNearby = true
-			}
+	for _, vehicle := range vehicles {
+		if vehicle.Distance < maxDistance {
+			foundNearby = true
+			break
 		}
 	}
 
@@ -111,5 +79,7 @@ func CityflitzerRunner() {
 	token = mqttClient.Publish("mobility/cityflitzer/update_date", byte(0), true, time.Now().Format(time.RFC3339))
 	token.Wait()
 
-	logger.Info("finished checking Cityflitzer and sent result to MQTT", zap.Bool("foundNearby", foundNearby))
+	log.WithFields(log.Fields{
+		"foundNearby": foundNearby,
+	}).Info("finished checking Cityflitzer and sent result to MQTT")
 }

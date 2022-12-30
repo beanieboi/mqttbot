@@ -2,7 +2,7 @@ package main
 
 import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"go.uber.org/zap"
+	log "github.com/sirupsen/logrus"
 )
 
 func NewMQTTClient(host string, username string, password string) MQTT.Client {
@@ -14,7 +14,9 @@ func NewMQTTClient(host string, username string, password string) MQTT.Client {
 
 	client := MQTT.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		logger.Error("error connecting to MQTT", zap.Error(token.Error()))
+		log.WithFields(log.Fields{
+			"error": token.Error(),
+		}).Error("MQTT request failed")
 	}
 	return client
 }
