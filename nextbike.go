@@ -115,6 +115,6 @@ func NextbikeRunner() {
 	token.Wait()
 
 	log.WithFields(log.Fields{
-		"found": found,
+		"foundNearby": found,
 	}).Info("finished checking Nextbike and sent result to MQTT")
 }
