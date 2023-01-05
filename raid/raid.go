@@ -57,7 +57,7 @@ func Runner(mqttClient MQTT.Client) {
 		if s.Status != "Online" {
 			faultyNames := []string{}
 			for _, f := range s.FaultyDevices {
-				faultyNames = append(faultyNames, f.BSDName)
+				faultyNames = append(faultyNames, fmt.Sprintf("%s/%s", s.Name, f.BSDName))
 			}
 			setUnhealthy(mqttClient, mqttPrefix, faultyNames)
 		} else {
