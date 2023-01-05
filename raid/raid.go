@@ -46,7 +46,7 @@ type DiskutilOutput struct {
 }
 
 func Runner(mqttClient MQTT.Client) {
-	mqttPrefix := "home/storage/raidstatus/"
+	mqttPrefix := "home/storage/raidstatus"
 	raid, err := DiskStatus()
 
 	if err != nil {
