@@ -17,8 +17,31 @@ type Vehicle struct {
 }
 
 func Runner(mqttClient MQTT.Client) {
-	maxDistance := 500.0
 	ctx := context.Background()
+	vehicles, err := getData(ctx)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Cityflitzer request failed")
+	}
+
+	foundNearby := Finder(vehicles)
+	publish(mqttClient, "cityflitzer_nearby", fmt.Sprintf("%t", foundNearby))
+	publish(mqttClient, "update_date", time.Now().Format(time.RFC3339))
+
+	log.WithFields(log.Fields{
+		"foundNearby": foundNearby,
+	}).Info("finished checking Cityflitzer and sent result to MQTT")
+}
+
+func publish(mqttClient MQTT.Client, topicPostfix string, payload interface{}) {
+	topicPrefix := "mobility/cityflitzer"
+	topic := fmt.Sprintf("%s/%s", topicPrefix, topicPostfix)
+	token := mqttClient.Publish(topic, byte(0), true, payload)
+	token.Wait()
+}
+
+func getData(ctx context.Context) ([]Vehicle, error) {
 	client := &http.Client{
 		Transport: http.DefaultTransport,
 		Timeout:   time.Second * 5,
@@ -35,38 +58,31 @@ func Runner(mqttClient MQTT.Client) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Error("Cityflitzer request failed")
-		return
+		return []Vehicle{}, err
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Error("Cityflitzer request failed")
-		return
+		return []Vehicle{}, err
 	}
 
 	err = res.Body.Close()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Error("Cityflitzer request failed")
-		return
+		return []Vehicle{}, err
 	}
 
 	var vehicles []Vehicle
 
 	err = json.Unmarshal(body, &vehicles)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Error("Cityflitzer request failed")
-		return
+		return []Vehicle{}, err
 	}
 
+	return vehicles, nil
+}
+
+func Finder(vehicles []Vehicle) bool {
+	maxDistance := 500.0
 	foundNearby := false
 	for _, vehicle := range vehicles {
 		if vehicle.Distance < maxDistance {
@@ -74,13 +90,5 @@ func Runner(mqttClient MQTT.Client) {
 			break
 		}
 	}
-
-	token := mqttClient.Publish("mobility/cityflitzer/cityflitzer_nearby", byte(0), true, fmt.Sprintf("%t", foundNearby))
-	token.Wait()
-	token = mqttClient.Publish("mobility/cityflitzer/update_date", byte(0), true, time.Now().Format(time.RFC3339))
-	token.Wait()
-
-	log.WithFields(log.Fields{
-		"foundNearby": foundNearby,
-	}).Info("finished checking Cityflitzer and sent result to MQTT")
+	return foundNearby
 }
