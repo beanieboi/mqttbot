@@ -2,9 +2,9 @@ package raid
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	log "github.com/sirupsen/logrus"
@@ -55,13 +55,13 @@ func Runner(mqttClient MQTT.Client) {
 
 	for _, s := range raid {
 		if s.Status != "Online" {
-			faultyDevices := "Faulty Devices: "
+			faultyNames := []string{}
 			for _, f := range s.FaultyDevices {
-				faultyDevices = faultyDevices + fmt.Sprintf(" %s", f.BSDName)
+				faultyNames = append(faultyNames, f.BSDName)
 			}
 			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, "false")
 			token.Wait()
-			token = mqttClient.Publish("storage/raidstatus/faultydevices", byte(0), true, faultyDevices)
+			token = mqttClient.Publish("storage/raidstatus/faultydevices", byte(0), true, strings.Join(faultyNames, ","))
 			token.Wait()
 		} else {
 			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, "true")
