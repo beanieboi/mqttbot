@@ -14,16 +14,17 @@ import (
 )
 
 type RaidStatus struct {
-	UUID          string
-	Name          string
-	Status        string
-	FaultyDevices []RaidMember
+	UUID    string
+	Name    string
+	Status  string
+	Devices []RaidMember
 }
 
 type RaidMember struct {
-	UUID    string `plist:"AppleRAIDMemberUUID"`
-	BSDName string `plist:"BSD Name"`
-	Status  string `plist:"MemberStatus"`
+	UUID                string `plist:"AppleRAIDMemberUUID"`
+	BSDName             string `plist:"BSD Name"`
+	MemberRebuildStatus int    `plist:"MemberRebuildStatus"`
+	Status              string `plist:"MemberStatus"`
 }
 
 type RaidSet struct {
@@ -41,6 +42,16 @@ type RaidSet struct {
 	Status     string
 }
 
+func (r RaidStatus) UnhealthyDevices() []RaidMember {
+	var devices []RaidMember
+	for _, d := range r.Devices {
+		if d.Status != "Online" {
+			devices = append(devices, d)
+		}
+	}
+	return devices
+}
+
 type DiskutilOutput struct {
 	RaidSets []RaidSet `plist:"AppleRAIDSets"`
 }
@@ -55,7 +66,7 @@ func Runner(mqttClient MQTT.Client) {
 	for _, s := range raid {
 		if s.Status != "Online" {
 			faultyNames := []string{}
-			for _, f := range s.FaultyDevices {
+			for _, f := range s.UnhealthyDevices() {
 				faultyNames = append(faultyNames, fmt.Sprintf("%s/%s", s.Name, f.BSDName))
 			}
 			setUnhealthy(mqttClient, faultyNames)
@@ -97,13 +108,7 @@ func DiskStatus() ([]RaidStatus, error) {
 
 	for _, r := range output.RaidSets {
 		rHealth := RaidStatus{UUID: r.UUID, Name: r.Name, Status: r.Status}
-
-		for _, m := range r.Members {
-			if m.Status != "Online" {
-				rHealth.FaultyDevices = append(rHealth.FaultyDevices, m)
-			}
-		}
-
+		rHealth.Devices = append(rHealth.Devices, r.Members...)
 		health = append(health, rHealth)
 	}
 
