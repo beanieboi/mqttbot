@@ -59,12 +59,12 @@ func Runner(mqttClient MQTT.Client) {
 			for _, f := range s.FaultyDevices {
 				faultyDevices = faultyDevices + fmt.Sprintf(" %s", f.BSDName)
 			}
-			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, false)
+			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, "false")
 			token.Wait()
 			token = mqttClient.Publish("storage/raidstatus/faultydevices", byte(0), true, faultyDevices)
 			token.Wait()
 		} else {
-			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, true)
+			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, "true")
 			token.Wait()
 		}
 		log.WithFields(log.Fields{
