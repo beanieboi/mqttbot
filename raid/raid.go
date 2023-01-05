@@ -47,9 +47,9 @@ func Runner(mqttClient MQTT.Client) {
 	raid, err := DiskStatus()
 
 	if err != nil {
-		token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, false)
+		token := mqttClient.Publish("home/storage/raidstatus/healthy", byte(0), true, false)
 		token.Wait()
-		token = mqttClient.Publish("storage/raidstatus/error", byte(0), true, err.Error())
+		token = mqttClient.Publish("home/storage/raidstatus/error", byte(0), true, err.Error())
 		token.Wait()
 	}
 
@@ -59,12 +59,12 @@ func Runner(mqttClient MQTT.Client) {
 			for _, f := range s.FaultyDevices {
 				faultyNames = append(faultyNames, f.BSDName)
 			}
-			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, "false")
+			token := mqttClient.Publish("home/storage/raidstatus/healthy", byte(0), true, "false")
 			token.Wait()
-			token = mqttClient.Publish("storage/raidstatus/faultydevices", byte(0), true, strings.Join(faultyNames, ","))
+			token = mqttClient.Publish("home/storage/raidstatus/faultydevices", byte(0), true, strings.Join(faultyNames, ","))
 			token.Wait()
 		} else {
-			token := mqttClient.Publish("storage/raidstatus/healthy", byte(0), true, "true")
+			token := mqttClient.Publish("home/storage/raidstatus/healthy", byte(0), true, "true")
 			token.Wait()
 		}
 		log.WithFields(log.Fields{
