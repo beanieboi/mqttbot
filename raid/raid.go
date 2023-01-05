@@ -2,9 +2,11 @@ package raid
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	log "github.com/sirupsen/logrus"
@@ -44,13 +46,11 @@ type DiskutilOutput struct {
 }
 
 func Runner(mqttClient MQTT.Client) {
+	mqttPrefix := "home/storage/raidstatus/"
 	raid, err := DiskStatus()
 
 	if err != nil {
-		token := mqttClient.Publish("home/storage/raidstatus/healthy", byte(0), true, false)
-		token.Wait()
-		token = mqttClient.Publish("home/storage/raidstatus/error", byte(0), true, err.Error())
-		token.Wait()
+		setError(mqttClient, mqttPrefix, err)
 	}
 
 	for _, s := range raid {
@@ -59,13 +59,9 @@ func Runner(mqttClient MQTT.Client) {
 			for _, f := range s.FaultyDevices {
 				faultyNames = append(faultyNames, f.BSDName)
 			}
-			token := mqttClient.Publish("home/storage/raidstatus/healthy", byte(0), true, "false")
-			token.Wait()
-			token = mqttClient.Publish("home/storage/raidstatus/faultydevices", byte(0), true, strings.Join(faultyNames, ","))
-			token.Wait()
+			setUnhealthy(mqttClient, mqttPrefix, faultyNames)
 		} else {
-			token := mqttClient.Publish("home/storage/raidstatus/healthy", byte(0), true, "true")
-			token.Wait()
+			setHealthy(mqttClient, mqttPrefix)
 		}
 		log.WithFields(log.Fields{
 			"status": s.Status,
@@ -73,6 +69,31 @@ func Runner(mqttClient MQTT.Client) {
 		}).Info("checked Raid and sent status to mqtt")
 	}
 
+	token := mqttClient.Publish(fmt.Sprintf("%s/update_date", mqttPrefix), byte(0), true, time.Now().Format(time.RFC3339))
+	token.Wait()
+}
+
+func setHealthy(mqttClient MQTT.Client, mqttPrefix string) {
+	token := mqttClient.Publish(fmt.Sprintf("%s/healthy", mqttPrefix), byte(0), true, "true")
+	token.Wait()
+	token = mqttClient.Publish(fmt.Sprintf("%s/faultydevices", mqttPrefix), byte(0), true, "")
+	token.Wait()
+	token = mqttClient.Publish(fmt.Sprintf("%s/error", mqttPrefix), byte(0), true, "")
+	token.Wait()
+}
+
+func setUnhealthy(mqttClient MQTT.Client, mqttPrefix string, faultyNames []string) {
+	token := mqttClient.Publish(fmt.Sprintf("%s/healthy", mqttPrefix), byte(0), true, "false")
+	token.Wait()
+	token = mqttClient.Publish(fmt.Sprintf("%s/faultydevices", mqttPrefix), byte(0), true, strings.Join(faultyNames, ","))
+	token.Wait()
+}
+
+func setError(mqttClient MQTT.Client, mqttPrefix string, err error) {
+	token := mqttClient.Publish(fmt.Sprintf("%s/healthy", mqttPrefix), byte(0), true, "false")
+	token.Wait()
+	token = mqttClient.Publish(fmt.Sprintf("%s/error", mqttPrefix), byte(0), true, err.Error())
+	token.Wait()
 }
 
 func DiskStatus() ([]RaidStatus, error) {
