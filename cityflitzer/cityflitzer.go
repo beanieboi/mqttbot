@@ -1,4 +1,4 @@
-package main
+package cityflitzer
 
 import (
 	"context"
@@ -8,14 +8,15 @@ import (
 	"net/http"
 	"time"
 
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 	log "github.com/sirupsen/logrus"
 )
 
-type CityflitzerVehicle struct {
+type Vehicle struct {
 	Distance float64 `json:"distance"`
 }
 
-func CityflitzerRunner() {
+func Runner(mqttClient MQTT.Client) {
 	maxDistance := 500.0
 	ctx := context.Background()
 	client := &http.Client{
@@ -56,7 +57,7 @@ func CityflitzerRunner() {
 		return
 	}
 
-	var vehicles []CityflitzerVehicle
+	var vehicles []Vehicle
 
 	err = json.Unmarshal(body, &vehicles)
 	if err != nil {

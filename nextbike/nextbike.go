@@ -1,4 +1,4 @@
-package main
+package nextbike
 
 import (
 	"context"
@@ -8,36 +8,37 @@ import (
 	"net/http"
 	"time"
 
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 	log "github.com/sirupsen/logrus"
 )
 
-type NextbikeHomeStation struct {
+type HomeStation struct {
 	ID      int
 	Country string
 	City    string
 }
 
-type NextbikePlace struct {
+type Place struct {
 	Number       int
 	BikesNumbers []string `json:"bike_numbers"`
 }
 
-type NextbikeCity struct {
-	Name   string          `json:"name"`
-	Places []NextbikePlace `json:"places"`
+type City struct {
+	Name   string  `json:"name"`
+	Places []Place `json:"places"`
 }
 
-type NextbikeCountry struct {
-	Name   string         `json:"country_name"`
-	Cities []NextbikeCity `json:"cities"`
+type Country struct {
+	Name   string `json:"country_name"`
+	Cities []City `json:"cities"`
 }
 
-type NextbikeData struct {
-	Countries []NextbikeCountry `json:"countries"`
+type Data struct {
+	Countries []Country `json:"countries"`
 }
 
-func NextbikeRunner() {
-	home := NextbikeHomeStation{
+func Runner(mqttClient MQTT.Client) {
+	home := HomeStation{
 		ID:      4103,
 		Country: "Germany",
 		City:    "Leipzig",
@@ -77,7 +78,7 @@ func NextbikeRunner() {
 		return
 	}
 
-	var nbd NextbikeData
+	var nbd Data
 
 	err = json.Unmarshal(body, &nbd)
 	if err != nil {

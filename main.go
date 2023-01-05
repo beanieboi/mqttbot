@@ -7,6 +7,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/beanieboi/mqttbot/cityflitzer"
+	"github.com/beanieboi/mqttbot/nextbike"
+	"github.com/beanieboi/mqttbot/raid"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	log "github.com/sirupsen/logrus"
 )
@@ -49,8 +52,9 @@ func main() {
 
 	go func() {
 		for range time.Tick(2 * time.Minute) {
-			go NextbikeRunner()
-			go CityflitzerRunner()
+			go nextbike.Runner(mqttClient)
+			go cityflitzer.Runner(mqttClient)
+			go raid.Runner(mqttClient)
 		}
 	}()
 
