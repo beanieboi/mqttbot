@@ -3,7 +3,6 @@ package nextbike
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,9 +40,11 @@ type Data struct {
 func Runner(mqttClient MQTT.Client) {
 	ctx := context.Background()
 	nbd, err := GetNextbikeData(ctx)
-	log.WithFields(log.Fields{
-		"error": err,
-	}).Error("Nextbike request failed")
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Nextbike request failed")
+	}
 
 	found := BikeFinder(nbd)
 
@@ -103,17 +104,17 @@ func GetNextbikeData(ctx context.Context) (Data, error) {
 	}
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return Data{}, errors.New("nextbike request failed")
+		return Data{}, err
 	}
 	err = res.Body.Close()
 	if err != nil {
-		return Data{}, errors.New("nextbike request failed")
+		return Data{}, err
 	}
 
 	var nbd Data
 	err = json.Unmarshal(body, &nbd)
 	if err != nil {
-		return Data{}, errors.New("nextbike request failed")
+		return Data{}, err
 	}
 	return nbd, nil
 }
