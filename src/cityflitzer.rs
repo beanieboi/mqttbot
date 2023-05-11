@@ -74,7 +74,7 @@ async fn get_data() -> Result<Vec<Vehicle>> {
 }
 
 fn publish(mqtt_client: &crate::mqtt::MqttClient, topic_suffix: &str, payload: &str) {
-    let topic_prefix = "mobility/cityflitzer1";
+    let topic_prefix = "mobility/cityflitzer";
     let topic = format!("{}/{}", topic_prefix, topic_suffix);
     mqtt_client.publish(topic, payload).unwrap();
 }

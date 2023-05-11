@@ -103,7 +103,7 @@ async fn get_nextbike_data() -> Result<Data> {
 }
 
 fn publish(mqtt_client: &crate::mqtt::MqttClient, topic_suffix: &str, payload: &str) {
-    let topic_prefix = "mobility/nextbike1";
+    let topic_prefix = "mobility/nextbike";
     let topic = format!("{}/{}", topic_prefix, topic_suffix);
     mqtt_client.publish(topic, payload).unwrap();
 }

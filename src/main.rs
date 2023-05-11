@@ -11,7 +11,7 @@ mod raid;
 async fn main() {
     env_logger::init();
     let forever = task::spawn(async {
-        let mut interval = time::interval(Duration::from_millis(5000));
+        let mut interval = time::interval(Duration::from_secs(120));
 
         loop {
             nextbike::run().await;

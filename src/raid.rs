@@ -98,7 +98,7 @@ fn get_raid_status() -> Vec<RaidStatus> {
 }
 
 fn publish(mqtt_client: &crate::mqtt::MqttClient, topic_suffix: &str, payload: &str) {
-    let topic_prefix = "home/storage/raidstatus1";
+    let topic_prefix = "home/storage/raidstatus";
     let topic = format!("{}/{}", topic_prefix, topic_suffix);
     mqtt_client.publish(topic, payload).unwrap();
 }
