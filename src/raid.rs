@@ -28,6 +28,7 @@ struct RaidSet {
     uuid: Option<String>,
     #[serde(rename(serialize = "BSD Name", deserialize = "BSD Name"))]
     bsdname: Option<String>,
+    name: Option<String>,
     #[serde(rename(serialize = "Members", deserialize = "Members"))]
     members: Vec<RaidMember>,
 }
@@ -137,7 +138,7 @@ fn get_raid_status(disk_util_output: DiskutilOutput) -> Vec<RaidStatus> {
         }
         raid_status.push(RaidStatus {
             uuid: raidset.uuid.unwrap(),
-            name: raidset.bsdname.unwrap(),
+            name: raidset.name.unwrap(),
             status: "Online".to_string(),
             devices: devices,
         });
