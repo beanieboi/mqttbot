@@ -13,7 +13,7 @@ async fn main() {
     let forever = task::spawn(async {
         let mut interval = time::interval(Duration::from_secs(120));
         let http_client = reqwest::Client::builder()
-            .timeout(Duration::from_millis(1000))
+            .timeout(Duration::from_millis(2000))
             .build()
             .expect("failed to construct http client");
 
