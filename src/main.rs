@@ -9,7 +9,8 @@ mod raid;
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    tracing_subscriber::fmt::init();
+
     let forever = task::spawn(async {
         let mut interval = time::interval(Duration::from_secs(120));
         let http_client = reqwest::Client::builder()

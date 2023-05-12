@@ -2,6 +2,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::process::Command;
+use tracing::info;
 
 extern crate plist;
 
@@ -38,9 +39,10 @@ struct DiskutilOutput {
 }
 
 pub async fn run(mqtt_client: &paho_mqtt::Client) {
-    let raid_sets = get_raid_status(get_diskutil_output());
-    for raid_set in raid_sets {
-        match check_raid_health(raid_set) {
+    let raid_sets_status = get_raid_status(get_diskutil_output());
+    for raid_set_status in raid_sets_status {
+        let raid_name = raid_set_status.name.clone();
+        match check_raid_health(raid_set_status) {
             Ok(_) => {
                 publish(
                     mqtt_client,
@@ -65,6 +67,8 @@ pub async fn run(mqtt_client: &paho_mqtt::Client) {
                         payload: "".to_string(),
                     },
                 );
+
+                info!(raid_name, "healthy");
             }
             Err(e) => {
                 publish(
@@ -82,6 +86,8 @@ pub async fn run(mqtt_client: &paho_mqtt::Client) {
                         payload: e,
                     },
                 );
+
+                info!(raid_name, "unhealthy");
             }
         }
     }
@@ -222,7 +228,7 @@ mod tests {
         assert_eq!(first_status.uuid, "29A25F24-BEA2-47BA-B0F9-323CDF5545EC");
     }
     #[test]
-    fn test_check_raid_health(){
+    fn test_check_raid_health() {
         let output: DiskutilOutput = plist::from_bytes(CONTENT.as_bytes()).unwrap();
         let raid_status = get_raid_status(output);
         let first_status = raid_status.first().unwrap();

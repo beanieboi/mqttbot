@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
+use tracing::info;
 
 struct HomeStation {
     id: i32,
@@ -37,15 +38,18 @@ pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
             panic!("Error getting nextbike data: {}", err);
         }
     };
+    let bike_found = bike_finder(data);
+
+    let result = match bike_found {
+        Some(_) => "true".to_string(),
+        None => "false".to_string(),
+    };
 
     publish(
         mqtt_client,
         crate::mqtt::Payload {
             topic_suffix: "e_cargo_available".to_string(),
-            payload: match bike_finder(data) {
-                Some(_) => "true".to_string(),
-                None => "false".to_string(),
-            },
+            payload: result.clone(),
         },
     );
 
@@ -56,6 +60,8 @@ pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
             payload: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
         },
     );
+
+    info!(result);
 }
 
 fn bike_finder(data: Data) -> Option<()> {

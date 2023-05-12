@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::{DurationRound, Utc};
+use tracing::info;
 
 #[derive(Debug, serde::Deserialize)]
 struct Vehicle {
@@ -10,14 +11,16 @@ pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
     let data = get_data(client).await.unwrap_or_else(|_| vec![]);
     let car_found = finder(data);
 
+    let result = match car_found {
+        Some(_) => "true".to_string(),
+        None => "false".to_string(),
+    };
+
     publish(
         mqtt_client,
         crate::mqtt::Payload {
             topic_suffix: "cityflitzer_nearby".to_string(),
-            payload: match car_found {
-                Some(_) => "true".to_string(),
-                None => "false".to_string(),
-            },
+            payload: result.clone(),
         },
     );
 
@@ -28,6 +31,8 @@ pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
             payload: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
         },
     );
+
+    info!(result);
 }
 
 fn finder(vehicles: Vec<Vehicle>) -> Option<()> {
