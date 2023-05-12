@@ -28,6 +28,7 @@ struct RaidSet {
     uuid: Option<String>,
     #[serde(rename(serialize = "BSD Name", deserialize = "BSD Name"))]
     bsdname: Option<String>,
+    #[serde(rename(serialize = "Name", deserialize = "Name"))]
     name: Option<String>,
     #[serde(rename(serialize = "Members", deserialize = "Members"))]
     members: Vec<RaidMember>,
@@ -216,6 +217,7 @@ mod tests {
         let raidsets = data.raidsets.unwrap();
         assert_eq!(raidsets.len(), 1);
         assert_eq!(raidsets[0].bsdname.as_ref().unwrap(), "disk4");
+        assert_eq!(raidsets[0].name.as_ref().unwrap(), "DataRaid");
         assert_eq!(raidsets[0].members.len(), 2);
     }
 
