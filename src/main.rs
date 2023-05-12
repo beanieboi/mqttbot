@@ -11,7 +11,7 @@ mod raid;
 async fn main() {
     env_logger::init();
     let forever = task::spawn(async {
-        let mut interval = time::interval(Duration::from_millis(100));
+        let mut interval = time::interval(Duration::from_secs(120));
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_millis(1000))
             .build()

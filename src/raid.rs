@@ -96,7 +96,6 @@ pub async fn run(mqtt_client: &paho_mqtt::Client) {
 }
 
 fn check_raid_health(raid_set_status: RaidStatus) -> Result<bool, String> {
-    dbg!(raid_set_status.clone());
     if raid_set_status.status != "Online" {
         let mut faulty_names: Vec<String> = Vec::new();
         for device in raid_set_status.devices {
