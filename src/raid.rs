@@ -5,7 +5,7 @@ use std::process::Command;
 
 extern crate plist;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug, Clone)]
 struct RaidStatus {
     uuid: String,
     name: String,
@@ -13,7 +13,7 @@ struct RaidStatus {
     devices: Vec<RaidMember>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct RaidMember {
     #[serde(rename(serialize = "BSD Name", deserialize = "BSD Name"))]
     bsdname: String,
@@ -37,38 +37,80 @@ struct DiskutilOutput {
     raidsets: Option<Vec<RaidSet>>,
 }
 
-pub async fn run() {
-    let mqtt_client = crate::mqtt::new_mqtt_client();
-    let conn_opts = crate::mqtt::conn_opts();
-    mqtt_client.client.connect(conn_opts).unwrap_or_else(|err| {
-        panic!("Unable to connect: {:?}", err);
-    });
-
-    let raid_sets = get_raid_status();
+pub async fn run(mqtt_client: &paho_mqtt::Client) {
+    let raid_sets = get_raid_status(get_diskutil_output());
     for raid_set in raid_sets {
-        if raid_set.status != "Online" {
-            let mut faulty_names: Vec<String> = Vec::new();
-            for device in raid_set.devices {
-                if device.status != "Online" {
-                    faulty_names.push(device.bsdname);
-                }
+        match check_raid_health(raid_set) {
+            Ok(_) => {
+                publish(
+                    mqtt_client,
+                    crate::mqtt::Payload {
+                        topic_suffix: "healthy".to_string(),
+                        payload: "true".to_string(),
+                    },
+                );
+
+                publish(
+                    mqtt_client,
+                    crate::mqtt::Payload {
+                        topic_suffix: "faultydevices".to_string(),
+                        payload: "".to_string(),
+                    },
+                );
+
+                publish(
+                    mqtt_client,
+                    crate::mqtt::Payload {
+                        topic_suffix: "error".to_string(),
+                        payload: "".to_string(),
+                    },
+                );
             }
-            publish(&mqtt_client, "healthy", "false");
-            publish(&mqtt_client, "faultydevices", &faulty_names.join(","));
-        } else {
-            publish(&mqtt_client, "healthy", "true");
-            publish(&mqtt_client, "faultydevices", "");
-            publish(&mqtt_client, "error", "");
+            Err(e) => {
+                publish(
+                    mqtt_client,
+                    crate::mqtt::Payload {
+                        topic_suffix: "healthy".to_string(),
+                        payload: "false".to_string(),
+                    },
+                );
+
+                publish(
+                    mqtt_client,
+                    crate::mqtt::Payload {
+                        topic_suffix: "healthy".to_string(),
+                        payload: e,
+                    },
+                );
+            }
         }
     }
+
     publish(
-        &mqtt_client,
-        "update_date",
-        &Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        mqtt_client,
+        crate::mqtt::Payload {
+            topic_suffix: "update_date".to_string(),
+            payload: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        },
     );
 }
 
-fn get_raid_status() -> Vec<RaidStatus> {
+fn check_raid_health(raid_set_status: RaidStatus) -> Result<bool, String> {
+    dbg!(raid_set_status.clone());
+    if raid_set_status.status != "Online" {
+        let mut faulty_names: Vec<String> = Vec::new();
+        for device in raid_set_status.devices {
+            if device.status != "Online" {
+                faulty_names.push(device.bsdname);
+            }
+        }
+        Err(faulty_names.join(","))
+    } else {
+        Ok(true)
+    }
+}
+
+fn get_diskutil_output() -> DiskutilOutput {
     let output = Command::new("diskutil")
         .arg("appleRAID")
         .arg("list")
@@ -77,11 +119,13 @@ fn get_raid_status() -> Vec<RaidStatus> {
         .expect("failed to execute process");
 
     let reader: Cursor<Vec<u8>> = Cursor::new(output.stdout);
-    let data: DiskutilOutput = plist::from_reader(reader).expect("failed to read diskutil output");
+    plist::from_reader(reader).expect("failed to read diskutil output")
+}
 
+fn get_raid_status(disk_util_output: DiskutilOutput) -> Vec<RaidStatus> {
     let mut raid_status: Vec<RaidStatus> = Vec::new();
 
-    for raidset in data.raidsets.unwrap_or_default() {
+    for raidset in disk_util_output.raidsets.unwrap_or_default() {
         let mut devices: Vec<RaidMember> = Vec::new();
         for member in raidset.members {
             devices.push(member);
@@ -89,7 +133,7 @@ fn get_raid_status() -> Vec<RaidStatus> {
         raid_status.push(RaidStatus {
             uuid: raidset.uuid.unwrap(),
             name: raidset.bsdname.unwrap(),
-            status: "online".to_string(),
+            status: "Online".to_string(),
             devices: devices,
         });
     }
@@ -97,76 +141,94 @@ fn get_raid_status() -> Vec<RaidStatus> {
     raid_status
 }
 
-fn publish(mqtt_client: &crate::mqtt::MqttClient, topic_suffix: &str, payload: &str) {
-    let topic_prefix = "home/storage/raidstatus";
-    let topic = format!("{}/{}", topic_prefix, topic_suffix);
-    mqtt_client.publish(topic, payload).unwrap();
+fn publish(mqtt_client: &paho_mqtt::Client, payload: crate::mqtt::Payload) {
+    mqtt_client
+        .publish(payload.to_msg("home/storage/raidstatus"))
+        .unwrap();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const CONTENT: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>AppleRAIDSets</key>
+        <array>
+            <dict>
+                <key>AppleRAIDSetUUID</key>
+                <string>29A25F24-BEA2-47BA-B0F9-323CDF5545EC</string>
+                <key>BSD Name</key>
+                <string>disk4</string>
+                <key>ChunkCount</key>
+                <integer>122083833</integer>
+                <key>ChunkSize</key>
+                <integer>32768</integer>
+                <key>Content</key>
+                <string>7C3457EF-0000-11AA-AA11-00306543ECAC</string>
+                <key>Level</key>
+                <string>Mirror</string>
+                <key>Members</key>
+                <array>
+                    <dict>
+                        <key>AppleRAIDMemberUUID</key>
+                        <string>6604E412-FC8E-4BD6-A2B1-972D47793A82</string>
+                        <key>BSD Name</key>
+                        <string>disk3s2</string>
+                        <key>MemberStatus</key>
+                        <string>Online</string>
+                    </dict>
+                    <dict>
+                        <key>AppleRAIDMemberUUID</key>
+                        <string>E4036DC8-CC28-47BD-B448-3A923098EEF1</string>
+                        <key>BSD Name</key>
+                        <string>disk2s2</string>
+                        <key>MemberStatus</key>
+                        <string>Online</string>
+                    </dict>
+                </array>
+                <key>Name</key>
+                <string>DataRaid</string>
+                <key>Rebuild</key>
+                <string>Automatic</string>
+                <key>Size</key>
+                <integer>4000443039744</integer>
+                <key>Spares</key>
+                <array/>
+                <key>Status</key>
+                <string>Online</string>
+            </dict>
+        </array>
+    </dict>
+    </plist>"#;
+
     #[test]
     fn parse_file() {
-        let content = r#"<?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>AppleRAIDSets</key>
-            <array>
-                <dict>
-                    <key>AppleRAIDSetUUID</key>
-                    <string>29A25F24-BEA2-47BA-B0F9-323CDF5545EC</string>
-                    <key>BSD Name</key>
-                    <string>disk4</string>
-                    <key>ChunkCount</key>
-                    <integer>122083833</integer>
-                    <key>ChunkSize</key>
-                    <integer>32768</integer>
-                    <key>Content</key>
-                    <string>7C3457EF-0000-11AA-AA11-00306543ECAC</string>
-                    <key>Level</key>
-                    <string>Mirror</string>
-                    <key>Members</key>
-                    <array>
-                        <dict>
-                            <key>AppleRAIDMemberUUID</key>
-                            <string>6604E412-FC8E-4BD6-A2B1-972D47793A82</string>
-                            <key>BSD Name</key>
-                            <string>disk3s2</string>
-                            <key>MemberStatus</key>
-                            <string>Online</string>
-                        </dict>
-                        <dict>
-                            <key>AppleRAIDMemberUUID</key>
-                            <string>E4036DC8-CC28-47BD-B448-3A923098EEF1</string>
-                            <key>BSD Name</key>
-                            <string>disk2s2</string>
-                            <key>MemberStatus</key>
-                            <string>Online</string>
-                        </dict>
-                    </array>
-                    <key>Name</key>
-                    <string>DataRaid</string>
-                    <key>Rebuild</key>
-                    <string>Automatic</string>
-                    <key>Size</key>
-                    <integer>4000443039744</integer>
-                    <key>Spares</key>
-                    <array/>
-                    <key>Status</key>
-                    <string>Online</string>
-                </dict>
-            </array>
-        </dict>
-        </plist>"#.as_bytes();
-        let data: DiskutilOutput = plist::from_bytes(content).unwrap();
-
+        let data: DiskutilOutput = plist::from_bytes(CONTENT.as_bytes()).unwrap();
         let raidsets = data.raidsets.unwrap();
-
         assert_eq!(raidsets.len(), 1);
         assert_eq!(raidsets[0].bsdname.as_ref().unwrap(), "disk4");
         assert_eq!(raidsets[0].members.len(), 2);
+    }
+
+    #[test]
+    fn test_get_raid_status() {
+        let output: DiskutilOutput = plist::from_bytes(CONTENT.as_bytes()).unwrap();
+        let raid_status = get_raid_status(output);
+
+        let first_status = raid_status.first().unwrap();
+        assert_eq!(raid_status.len(), 1);
+        assert_eq!(first_status.uuid, "29A25F24-BEA2-47BA-B0F9-323CDF5545EC");
+    }
+    #[test]
+    fn test_check_raid_health(){
+        let output: DiskutilOutput = plist::from_bytes(CONTENT.as_bytes()).unwrap();
+        let raid_status = get_raid_status(output);
+        let first_status = raid_status.first().unwrap();
+        let result = check_raid_health(first_status.clone());
+
+        assert_eq!(result.is_ok(), true);
     }
 }

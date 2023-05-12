@@ -1,54 +1,43 @@
 use anyhow::Result;
 use chrono::{DurationRound, Utc};
-use std::time::Duration;
 
 #[derive(Debug, serde::Deserialize)]
 struct Vehicle {
     distance: f64,
 }
 
-pub async fn run() {
-    let mqtt_client = crate::mqtt::new_mqtt_client();
-    let conn_opts = crate::mqtt::conn_opts();
-    mqtt_client.client.connect(conn_opts).unwrap_or_else(|err| {
-        panic!("Unable to connect: {:?}", err);
-    });
-
-    let data = get_data().await.unwrap_or_else(|_| vec![]);
+pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
+    let data = get_data(client).await.unwrap_or_else(|_| vec![]);
     let car_found = finder(data);
 
     publish(
-        &mqtt_client,
-        "cityflitzer_nearby",
-        match car_found {
-            true => "true",
-            false => "false",
+        mqtt_client,
+        crate::mqtt::Payload {
+            topic_suffix: "cityflitzer_nearby".to_string(),
+            payload: match car_found {
+                Some(_) => "true".to_string(),
+                None => "false".to_string(),
+            },
         },
     );
+
     publish(
-        &mqtt_client,
-        "update_date",
-        &Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        mqtt_client,
+        crate::mqtt::Payload {
+            topic_suffix: "update_date".to_string(),
+            payload: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        },
     );
 }
 
-fn finder(data: Vec<Vehicle>) -> bool {
+fn finder(vehicles: Vec<Vehicle>) -> Option<()> {
     let max_distance = 500.0;
-    let mut found_nearby = false;
-    for vehicle in data {
-        if vehicle.distance < max_distance {
-            found_nearby = true;
-            break;
-        }
-    }
-    found_nearby
+    let _ = vehicles.iter().find(|c| c.distance < max_distance)?;
+
+    Some(())
 }
 
-async fn get_data() -> Result<Vec<Vehicle>> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::new(1, 0))
-        .build();
-
+async fn get_data(client: &reqwest::Client) -> Result<Vec<Vehicle>> {
     let lat = 51.32032033409821;
     let long = 12.36535400104385;
     let now = chrono::Utc::now();
@@ -63,7 +52,7 @@ async fn get_data() -> Result<Vec<Vehicle>> {
       end = end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
     );
 
-    let resp = client?
+    let resp = client
         .get(url)
         .header("X-API-KEY", "45d38969-0086-978d-dc06-7959b0d2fe79")
         .send()
@@ -73,8 +62,8 @@ async fn get_data() -> Result<Vec<Vehicle>> {
     Ok(resp)
 }
 
-fn publish(mqtt_client: &crate::mqtt::MqttClient, topic_suffix: &str, payload: &str) {
-    let topic_prefix = "mobility/cityflitzer";
-    let topic = format!("{}/{}", topic_prefix, topic_suffix);
-    mqtt_client.publish(topic, payload).unwrap();
+fn publish(mqtt_client: &paho_mqtt::Client, payload: crate::mqtt::Payload) {
+    mqtt_client
+        .publish(payload.to_msg("mobility/cityflitzer"))
+        .unwrap();
 }

@@ -1,25 +1,28 @@
+use paho_mqtt::ConnectOptions;
 use std::env;
 
-use paho_mqtt::ConnectOptions;
-
-pub struct MqttClient {
-    pub client: paho_mqtt::Client,
+pub struct Payload {
+    pub topic_suffix: String,
+    pub payload: String,
 }
 
-impl MqttClient {
-    pub fn publish(&self, topic: String, payload: &str) -> Result<(), paho_mqtt::Error> {
-        let msg = paho_mqtt::Message::new(topic, payload, 0);
-        self.client.publish(msg)
+impl Payload {
+    pub fn to_msg(&self, prefix: &str) -> paho_mqtt::Message {
+        let topic = format!("{}/{}", prefix, self.topic_suffix);
+        paho_mqtt::Message::new(topic, self.payload.to_owned(), 0)
     }
 }
 
-pub fn new_mqtt_client() -> MqttClient {
+pub fn new_mqtt_client() -> paho_mqtt::Client {
     let host = env::var("MQTT_HOST").unwrap_or_else(|_| "tcp://192.168.1.5:1883".to_string());
-    let client = paho_mqtt::Client::new(host).unwrap_or_else(|err| {
-        panic!("Error creating the client: {}", err);
-    });
+    let co = paho_mqtt::CreateOptionsBuilder::new()
+        .server_uri(host)
+        .client_id("mqttbot")
+        .finalize();
 
-    MqttClient { client: client }
+    paho_mqtt::Client::new(co).unwrap_or_else(|err| {
+        panic!("Error creating the client: {}", err);
+    })
 }
 
 pub fn conn_opts() -> ConnectOptions {
@@ -31,5 +34,6 @@ pub fn conn_opts() -> ConnectOptions {
     paho_mqtt::ConnectOptionsBuilder::new()
         .user_name(username)
         .password(password)
+        .connect_timeout(std::time::Duration::from_millis(100))
         .finalize()
 }
