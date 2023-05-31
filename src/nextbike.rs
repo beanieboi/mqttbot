@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
-use tracing::info;
+use tracing::{info,error};
 
 struct HomeStation {
     id: i32,
@@ -35,7 +35,8 @@ pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
     let data = match get_data(client).await {
         Ok(data) => data,
         Err(err) => {
-            panic!("Error getting nextbike data: {}", err);
+            error!("Error getting nextbike data: {}", err);
+            return
         }
     };
     let bike_found = bike_finder(data);

@@ -237,6 +237,6 @@ mod tests {
         let first_status = raid_status.first().unwrap();
         let result = check_raid_health(first_status.clone());
 
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
     }
 }
