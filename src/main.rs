@@ -28,12 +28,18 @@ async fn main() {
             let _ = tokio::join!(
                 nextbike::run(&mqtt_client, &http_client),
                 cityflitzer::run(&mqtt_client, &http_client),
-                raid::run(&mqtt_client),
+                // raid::run(&mqtt_client),
+            );
+
+            if mqtt_client.is_connected() {
+                mqtt_client
+                    .disconnect(paho_mqtt::DisconnectOptions::default())
+                    .expect("unable to disconnect")
+            }
+
+            let _ = tokio::join!(
                 interval.tick()
             );
-            mqtt_client
-                .disconnect(paho_mqtt::DisconnectOptions::default())
-                .expect("unable to disconnect")
         }
     });
 
