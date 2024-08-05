@@ -37,9 +37,7 @@ async fn main() {
                     .expect("unable to disconnect")
             }
 
-            let _ = tokio::join!(
-                interval.tick()
-            );
+            let _ = tokio::join!(interval.tick());
         }
     });
 
