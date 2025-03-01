@@ -4,7 +4,6 @@ use tokio::{task, time};
 
 mod cityflitzer;
 mod mqtt;
-mod nextbike;
 
 #[tokio::main]
 async fn main() {
@@ -24,10 +23,7 @@ async fn main() {
                 panic!("Unable to connect: {:?}", err);
             });
 
-            let _ = tokio::join!(
-                nextbike::run(&mqtt_client, &http_client),
-                cityflitzer::run(&mqtt_client, &http_client)
-            );
+            let _ = tokio::join!(cityflitzer::run(&mqtt_client, &http_client));
 
             if mqtt_client.is_connected() {
                 mqtt_client
