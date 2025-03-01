@@ -50,11 +50,11 @@ async fn get_data(client: &reqwest::Client) -> Result<Vec<Vehicle>> {
     let end = start + chrono::Duration::hours(1);
 
     let url = format!(
-      "https://de1.cantamen.de/casirest/v3/pointsofinterest?placeIsFixed=false&lat={lat}&lng={lng}&range=30000&start={start}&end={end}&sort=distance",
-      lat = lat,
-      lng = long,
-      start = start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-      end = end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        "https://de1.cantamen.de/casirest/v3/pointsofinterest?placeIsFixed=false&lat={lat}&lng={lng}&range=30000&start={start}&end={end}&sort=distance",
+        lat = lat,
+        lng = long,
+        start = start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        end = end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
     );
 
     let resp = client
