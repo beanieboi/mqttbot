@@ -5,14 +5,13 @@ use tokio::{task, time};
 mod cityflitzer;
 mod mqtt;
 mod nextbike;
-mod raid;
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
     let forever = task::spawn(async {
-        let mut interval = time::interval(Duration::from_secs(120));
+        let mut interval = time::interval(Duration::from_secs(10));
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_millis(5000))
             .build()
@@ -27,8 +26,7 @@ async fn main() {
 
             let _ = tokio::join!(
                 nextbike::run(&mqtt_client, &http_client),
-                cityflitzer::run(&mqtt_client, &http_client),
-                // raid::run(&mqtt_client),
+                cityflitzer::run(&mqtt_client, &http_client)
             );
 
             if mqtt_client.is_connected() {
