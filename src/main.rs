@@ -1,4 +1,3 @@
-#![allow(clippy::redundant_field_names)]
 use std::time::Duration;
 use tokio::{task, time};
 
