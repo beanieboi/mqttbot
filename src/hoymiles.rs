@@ -11,10 +11,31 @@ struct HoymilesResponse {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct HoymilesData {
+    is_null: i32,
+    today_eq: String,
+    month_eq: String,
+    year_eq: String,
+    total_eq: String,
+    real_power: String,
+    co2_emission_reduction: String,
+    plant_tree: String,
     data_time: String,
     last_data_time: String,
+    capacitor: String,
+    is_balance: i32,
     is_reflux: i32,
     reflux_station_data: Option<RefluxStationData>,
+    clp: i32,
+    efl_today_eq: Option<String>,
+    efl_month_eq: Option<String>,
+    efl_year_eq: Option<String>,
+    efl_total_eq: Option<String>,
+    electricity_price: f64,
+    unit_code: String,
+    unit: String,
+    tou_mode: i32,
+    is_load: i32,
+    warn_data: WarnData,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -26,8 +47,42 @@ struct RefluxStationData {
     load_power: String,
     bms_power: String,
     bms_soc: String,
+    inv_num: i32,
+    meter_location: i32,
+    pv_to_load_eq: String,
+    load_from_pv_eq: String,
+    meter_b_in_eq: String,
+    meter_b_out_eq: String,
     bms_in_eq: String,
     bms_out_eq: String,
+    self_eq: String,
+    pv_eq_total: String,
+    use_eq_total: String,
+    flows: Vec<String>,
+    icon_pv: i32,
+    icon_grid: i32,
+    icon_load: i32,
+    icon_bms: i32,
+    icon_gen: i32,
+    icon_pvi: i32,
+    mb_in_eq: MeterEqData,
+    mb_out_eq: MeterEqData,
+    icon_plug: i32,
+    icon_ai_plug: i32,
+    cfg_load_power: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct MeterEqData {
+    today_eq: String,
+    month_eq: String,
+    year_eq: String,
+    total_eq: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct WarnData {
+    s_uoff: bool,
 }
 
 pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client, state: &HoymilesState) {
