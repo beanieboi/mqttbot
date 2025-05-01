@@ -25,7 +25,7 @@ struct RefluxStationData {
     grid_power: String,
     load_power: String,
     bms_power: String,
-    bms_soc: Option<String>,
+    bms_soc: String,
     bms_in_eq: String,
     bms_out_eq: String,
 }
@@ -45,7 +45,11 @@ fn publish_discovery(mqtt_client: &paho_mqtt::Client) {
     let discovery_prefix = "homeassistant";
     let mqtt_topic = "solar/hoymiles";
 
-    let sensors = [("soc", "Battery State of Charge", "battery", "%")];
+    let sensors = [
+        ("bms_soc", "Battery State of Charge", "battery", "%"),
+        ("bms_in_eq", "Battery Charge", "energy", "Wh"),
+        ("bms_out_eq", "Battery Discharge", "energy", "Wh"),
+    ];
 
     let device_info = serde_json::json!({
         "identifiers": ["hoymiles-ms-a2"],
@@ -109,18 +113,28 @@ async fn get_station_data(
         }
     };
 
-    let soc = data
-        .data
-        .unwrap()
-        .reflux_station_data
-        .unwrap()
-        .bms_soc
-        .unwrap();
-    let payload = crate::mqtt::Payload {
-        topic_suffix: "soc".to_string(),
-        payload: soc,
-    };
-    publish(mqtt_client, payload);
+    if let Some(hm_data) = data.data {
+        if let Some(station_data) = hm_data.reflux_station_data {
+            // Publish each sensor value
+            let sensors = [
+                ("bms_soc", &station_data.bms_soc),
+                ("bms_in_eq", &station_data.bms_in_eq),
+                ("bms_out_eq", &station_data.bms_out_eq),
+            ];
+
+            for (sensor_id, value) in sensors.iter() {
+                let payload = crate::mqtt::Payload {
+                    topic_suffix: sensor_id.to_string(),
+                    payload: value.to_string(),
+                };
+                publish(mqtt_client, payload);
+            }
+        } else {
+            error!("No reflux_station_data available");
+        }
+    } else {
+        error!("No data in response");
+    }
 }
 
 fn publish(mqtt_client: &paho_mqtt::Client, payload: crate::mqtt::Payload) {
