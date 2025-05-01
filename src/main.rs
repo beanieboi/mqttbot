@@ -3,6 +3,7 @@ use tokio::{task, time};
 
 mod cityflitzer;
 mod hoymiles;
+mod hoymiles_state;
 mod mqtt;
 
 #[tokio::main]
@@ -15,7 +16,7 @@ async fn main() {
             .timeout(Duration::from_millis(5000))
             .build()
             .expect("failed to construct http client");
-        let hm_state = hoymiles::init(&http_client).await;
+        let hm_state = hoymiles_state::init(&http_client).await;
 
         loop {
             let mqtt_client = crate::mqtt::new_mqtt_client();
