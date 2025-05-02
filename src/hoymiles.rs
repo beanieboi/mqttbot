@@ -160,10 +160,21 @@ async fn get_station_data(
         }
     };
 
-    let data = match resp.json::<HoymilesResponse>().await {
+    // Read the response body as text first
+    let body_text = match resp.text().await {
+        Ok(text) => text,
+        Err(e) => {
+            error!("Failed to read response body: {}", e);
+            return;
+        }
+    };
+
+    // Attempt to parse the text body as JSON
+    let data = match serde_json::from_str::<HoymilesResponse>(&body_text) {
         Ok(d) => d,
         Err(e) => {
-            error!("Failed to parse flow data response: {}", e);
+            // Log the error and the raw body text if parsing fails
+            error!("Failed to parse station data response: {}. Raw response: {}", e, body_text);
             return;
         }
     };
