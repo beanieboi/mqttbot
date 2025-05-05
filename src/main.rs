@@ -11,12 +11,12 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let forever = task::spawn(async {
-        let mut interval = time::interval(Duration::from_secs(120));
+        let mut interval = time::interval(Duration::from_secs(10));
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_millis(5000))
             .build()
             .expect("failed to construct http client");
-        let hm_state = hoymiles_state::init(&http_client).await;
+        let mut hm_state = hoymiles_state::init(&http_client).await;
 
         loop {
             let mqtt_client = crate::mqtt::new_mqtt_client();
@@ -27,7 +27,7 @@ async fn main() {
 
             let _ = tokio::join!(
                 cityflitzer::run(&mqtt_client, &http_client),
-                hoymiles::run(&mqtt_client, &http_client, &hm_state)
+                hoymiles::run(&mqtt_client, &http_client, &mut hm_state)
             );
 
             if mqtt_client.is_connected() {

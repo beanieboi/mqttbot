@@ -10,6 +10,13 @@ struct HoymilesResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+struct HoymilesErrorResponse {
+    status: String,
+    message: String,
+    data: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 struct HoymilesData {
     is_null: i32,
     today_eq: String,
@@ -85,14 +92,56 @@ struct WarnData {
     s_uoff: bool,
 }
 
-pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client, state: &HoymilesState) {
+#[derive(Debug)]
+enum StationDataError {
+    HttpRequestFailed(reqwest::Error),
+    ReadBodyFailed(reqwest::Error),
+    TokenExpired,
+    ApiError(HoymilesErrorResponse),
+    ParsingFailed {
+        error: serde_json::Error,
+        raw_body: String,
+    },
+    NoData,
+}
+
+pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client, state: &mut HoymilesState) {
     publish_discovery(mqtt_client);
 
     if let Some(sid) = &state.sid {
         if let Some(token) = &state.token {
-            get_station_data(client, mqtt_client, token, sid).await;
-            info!(true);
+            match get_station_data(client, mqtt_client, token, sid).await {
+                Ok(()) => {
+                    info!("Successfully retrieved and published Hoymiles station data.");
+                }
+                Err(StationDataError::TokenExpired) => {
+                    error!("Hoymiles token has expired. State refresh needed.");
+                    state.refresh(client).await;
+                }
+                Err(StationDataError::HttpRequestFailed(e)) => {
+                    error!("Failed to send request to Hoymiles API: {}", e);
+                }
+                Err(StationDataError::ReadBodyFailed(e)) => {
+                    error!("Failed to read response body from Hoymiles API: {}", e);
+                }
+                Err(StationDataError::ApiError(api_err)) => {
+                    error!("Hoymiles API returned an error: {:?}", api_err);
+                }
+                Err(StationDataError::ParsingFailed { error, raw_body }) => {
+                    error!(
+                        "Failed to parse Hoymiles response. Error: {}, Raw Body: {}",
+                        error, raw_body
+                    );
+                }
+                Err(StationDataError::NoData) => {
+                    error!("No usable data found in Hoymiles response.");
+                }
+            }
+        } else {
+            error!("Hoymiles token is missing in state.");
         }
+    } else {
+        error!("Hoymiles SID is missing in state.");
     }
 }
 
@@ -144,7 +193,7 @@ async fn get_station_data(
     mqtt_client: &paho_mqtt::Client,
     token: &str,
     sid: &str,
-) {
+) -> Result<(), StationDataError> {
     let url = "https://eud0.hoymiles.com/pvmc/api/0/station_data/real_g_c";
     let resp = match client
         .post(url)
@@ -154,52 +203,65 @@ async fn get_station_data(
         .await
     {
         Ok(r) => r,
-        Err(e) => {
-            error!("Failed to get station data: {}", e);
-            return;
-        }
+        Err(e) => return Err(StationDataError::HttpRequestFailed(e)),
     };
 
-    // Read the response body as text first
     let body_text = match resp.text().await {
         Ok(text) => text,
-        Err(e) => {
-            error!("Failed to read response body: {}", e);
-            return;
-        }
+        Err(e) => return Err(StationDataError::ReadBodyFailed(e)),
     };
 
-    // Attempt to parse the text body as JSON
-    let data = match serde_json::from_str::<HoymilesResponse>(&body_text) {
-        Ok(d) => d,
-        Err(e) => {
-            // Log the error and the raw body text if parsing fails
-            error!("Failed to parse station data response: {}. Raw response: {}", e, body_text);
-            return;
-        }
-    };
+    match serde_json::from_str::<HoymilesResponse>(&body_text) {
+        Ok(data) => {
+            if let Some(hm_data) = data.data {
+                if let Some(station_data) = hm_data.reflux_station_data {
+                    let sensors = [
+                        ("bms_soc", &station_data.bms_soc),
+                        ("bms_in_eq", &station_data.bms_in_eq),
+                        ("bms_out_eq", &station_data.bms_out_eq),
+                    ];
 
-    if let Some(hm_data) = data.data {
-        if let Some(station_data) = hm_data.reflux_station_data {
-            // Publish each sensor value
-            let sensors = [
-                ("bms_soc", &station_data.bms_soc),
-                ("bms_in_eq", &station_data.bms_in_eq),
-                ("bms_out_eq", &station_data.bms_out_eq),
-            ];
-
-            for (sensor_id, value) in sensors.iter() {
-                let payload = crate::mqtt::Payload {
-                    topic_suffix: sensor_id.to_string(),
-                    payload: value.to_string(),
-                };
-                publish(mqtt_client, payload);
+                    for (sensor_id, value) in sensors.iter() {
+                        let payload = crate::mqtt::Payload {
+                            topic_suffix: sensor_id.to_string(),
+                            payload: value.to_string(),
+                        };
+                        publish(mqtt_client, payload);
+                    }
+                    Ok(())
+                } else {
+                    error!("No reflux_station_data available in response");
+                    Err(StationDataError::NoData)
+                }
+            } else {
+                error!("No 'data' field in response");
+                Err(StationDataError::NoData)
             }
-        } else {
-            error!("No reflux_station_data available");
         }
-    } else {
-        error!("No data in response");
+        Err(initial_parse_err) => match serde_json::from_str::<HoymilesErrorResponse>(&body_text) {
+            Ok(error_resp) => {
+                if error_resp.status == "100" && error_resp.message == "token verify error." {
+                    info!("Hoymiles token expired or invalid.");
+                    Err(StationDataError::TokenExpired)
+                } else {
+                    error!(
+                        "Hoymiles API returned an error: status={}, message='{}'",
+                        error_resp.status, error_resp.message
+                    );
+                    Err(StationDataError::ApiError(error_resp))
+                }
+            }
+            Err(_) => {
+                error!(
+                    "Failed to parse station data response as known structure: {}. Raw response: {}",
+                    initial_parse_err, body_text
+                );
+                Err(StationDataError::ParsingFailed {
+                    error: initial_parse_err,
+                    raw_body: body_text,
+                })
+            }
+        },
     }
 }
 

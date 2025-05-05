@@ -3,6 +3,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use sha2::{Digest, Sha256};
 use tracing::{error, info};
 
+#[derive(Clone)]
 pub struct HoymilesState {
     pub token: Option<String>,
     pub sid: Option<String>,
@@ -13,6 +14,26 @@ impl HoymilesState {
         Self {
             token: None,
             sid: None,
+        }
+    }
+
+    pub async fn refresh(&mut self, client: &reqwest::Client) {
+        info!("Refreshing Hoymiles state (token and SID)...");
+
+        self.sid = None;
+
+        self.token = request_new_token(client).await;
+
+        if let Some(token) = &self.token {
+            info!("Successfully obtained new token during refresh.");
+            self.sid = get_sid(client, token).await;
+            if self.sid.is_some() {
+                info!("Successfully obtained new SID during refresh.");
+            } else {
+                error!("Failed to obtain new SID during refresh even with a new token.");
+            }
+        } else {
+            error!("Failed to obtain new token during refresh. State remains invalid.");
         }
     }
 }
