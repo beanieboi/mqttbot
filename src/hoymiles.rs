@@ -105,7 +105,11 @@ enum StationDataError {
     NoData,
 }
 
-pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client, state: &mut HoymilesState) {
+pub async fn run(
+    mqtt_client: &paho_mqtt::Client,
+    client: &reqwest::Client,
+    state: &mut HoymilesState,
+) {
     publish_discovery(mqtt_client);
 
     if let Some(sid) = &state.sid {
