@@ -1,3 +1,4 @@
+use std::env;
 use std::time::Duration;
 use tokio::{task, time};
 
@@ -11,7 +12,10 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let forever = task::spawn(async {
-        let mut interval = time::interval(Duration::from_secs(120));
+        let refresh_interval = env::var("REFRESH_INTERVAL").unwrap_or_else(|_| "120".to_string());
+        let i = refresh_interval.parse::<u64>().unwrap_or(120);
+
+        let mut interval = time::interval(Duration::from_secs(i));
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_millis(5000))
             .build()
