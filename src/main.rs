@@ -11,7 +11,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let forever = task::spawn(async {
-        let mut interval = time::interval(Duration::from_secs(10));
+        let mut interval = time::interval(Duration::from_secs(120));
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_millis(5000))
             .build()
