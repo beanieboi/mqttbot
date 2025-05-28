@@ -9,18 +9,13 @@ struct Vehicle {
 
 pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
     let data = get_data(client).await.unwrap_or_else(|_| vec![]);
-    let car_found = finder(data);
-
-    let result = match car_found {
-        Some(_) => "true".to_string(),
-        None => "false".to_string(),
-    };
+    let cars_found = finder(data);
 
     publish(
         mqtt_client,
         crate::mqtt::Payload {
             topic_suffix: "cityflitzer_nearby".to_string(),
-            payload: result.clone(),
+            payload: cars_found.to_string(),
         },
     );
 
@@ -32,14 +27,15 @@ pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
         },
     );
 
-    info!(result);
+    info!(cars_found);
 }
 
-fn finder(vehicles: Vec<Vehicle>) -> Option<()> {
+fn finder(vehicles: Vec<Vehicle>) -> usize {
     let max_distance = 500.0;
-    let _ = vehicles.iter().find(|c| c.distance < max_distance)?;
-
-    Some(())
+    vehicles
+        .iter()
+        .filter(|c| c.distance < max_distance)
+        .count()
 }
 
 async fn get_data(client: &reqwest::Client) -> Result<Vec<Vehicle>> {
