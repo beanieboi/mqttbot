@@ -1,4 +1,5 @@
 use crate::hoymiles_state::HoymilesState;
+use crate::ha_discovery::{create_battery_sensor, create_energy_sensor, publish_sensor_config, Device};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
@@ -153,42 +154,37 @@ fn publish_discovery(mqtt_client: &paho_mqtt::Client) {
     let discovery_prefix = "homeassistant";
     let mqtt_topic = "solar/hoymiles";
 
+    let device = Device {
+        identifiers: vec!["hoymiles-ms-a2".to_string()],
+        manufacturer: "Hoymiles".to_string(),
+        model: "MS-A2".to_string(),
+        name: "Hoymiles MS-A2".to_string(),
+        sw_version: "1.0".to_string(),
+    };
+
     let sensors = [
-        ("bms_soc", "Battery State of Charge", "battery", "%"),
-        ("bms_in_eq", "Battery Charge", "energy", "Wh"),
-        ("bms_out_eq", "Battery Discharge", "energy", "Wh"),
+        create_battery_sensor(
+            "Battery State of Charge",
+            "hoymiles_bms_soc",
+            format!("{}/bms_soc", mqtt_topic),
+            device.clone(),
+        ),
+        create_energy_sensor(
+            "Battery Charge",
+            "hoymiles_bms_in_eq",
+            format!("{}/bms_in_eq", mqtt_topic),
+            device.clone(),
+        ),
+        create_energy_sensor(
+            "Battery Discharge",
+            "hoymiles_bms_out_eq",
+            format!("{}/bms_out_eq", mqtt_topic),
+            device.clone(),
+        ),
     ];
 
-    let device_info = serde_json::json!({
-        "identifiers": ["hoymiles-ms-a2"],
-        "manufacturer": "Hoymiles",
-        "model": "MS-A2",
-        "name": "Hoymiles MS-A2",
-        "sw_version": "1.0"
-    });
-
-    for (sensor_id, name, device_class, unit) in sensors.iter() {
-        let discovery_topic = format!(
-            "{}/sensor/hoymiles-ms-a2/{}/config",
-            discovery_prefix, sensor_id
-        );
-        let payload = serde_json::json!({
-            "name": name,
-            "unique_id": format!("hoymiles_{}", sensor_id),
-            "state_topic": format!("{}/{}", mqtt_topic, sensor_id),
-            "device": device_info,
-            "unit_of_measurement": unit,
-            "device_class": device_class,
-            "state_class": if *device_class == "battery" { "MEASUREMENT" } else { "TOTAL_INCREASING" }
-        });
-
-        if let Err(e) = mqtt_client.publish(paho_mqtt::Message::new(
-            discovery_topic,
-            payload.to_string(),
-            0,
-        )) {
-            error!("Failed to publish discovery message: {}", e);
-        }
+    for sensor in sensors.iter() {
+        publish_sensor_config(mqtt_client, discovery_prefix, "sensor", sensor);
     }
 }
 

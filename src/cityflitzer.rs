@@ -1,6 +1,7 @@
 use anyhow::Result;
 use chrono::{DurationRound, Utc};
 use tracing::info;
+use crate::ha_discovery::{create_sensor, publish_sensor_config, Device};
 
 #[derive(Debug, serde::Deserialize)]
 struct Vehicle {
@@ -8,6 +9,8 @@ struct Vehicle {
 }
 
 pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
+    publish_discovery(mqtt_client);
+    
     let data = get_data(client).await.unwrap_or_else(|_| vec![]);
     let cars_found = finder(data);
 
@@ -28,6 +31,40 @@ pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
     );
 
     info!(cars_found);
+}
+
+fn publish_discovery(mqtt_client: &paho_mqtt::Client) {
+    let discovery_prefix = "homeassistant";
+    let mqtt_topic = "mobility/cityflitzer";
+
+    let device = Device {
+        identifiers: vec!["cityflitzer-monitor".to_string()],
+        manufacturer: "Cityflitzer".to_string(),
+        model: "API Monitor".to_string(),
+        name: "Cityflitzer Monitor".to_string(),
+        sw_version: "1.0".to_string(),
+    };
+
+    let sensors = [
+        create_sensor(
+            "Nearby Cars",
+            "cityflitzer_nearby",
+            format!("{}/cityflitzer_nearby", mqtt_topic),
+            device.clone(),
+        )
+        .with_state_class("measurement"),
+        create_sensor(
+            "Last Update",
+            "cityflitzer_update",
+            format!("{}/update_date", mqtt_topic),
+            device.clone(),
+        )
+        .with_device_class("timestamp"),
+    ];
+
+    for sensor in sensors.iter() {
+        publish_sensor_config(mqtt_client, discovery_prefix, "sensor", sensor);
+    }
 }
 
 fn finder(vehicles: Vec<Vehicle>) -> usize {

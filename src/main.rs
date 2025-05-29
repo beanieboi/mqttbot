@@ -3,6 +3,7 @@ use std::time::Duration;
 use tokio::{task, time};
 
 mod cityflitzer;
+mod ha_discovery;
 mod hoymiles;
 mod hoymiles_state;
 mod mqtt;
