@@ -1,5 +1,7 @@
+use crate::ha_discovery::{
+    Device, create_battery_sensor, create_energy_sensor, publish_sensor_config,
+};
 use crate::hoymiles_state::HoymilesState;
-use crate::ha_discovery::{create_battery_sensor, create_energy_sensor, publish_sensor_config, Device};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 

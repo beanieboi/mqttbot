@@ -1,7 +1,7 @@
+use crate::ha_discovery::{Device, create_sensor, publish_sensor_config};
 use anyhow::Result;
 use chrono::{DurationRound, Utc};
 use tracing::info;
-use crate::ha_discovery::{create_sensor, publish_sensor_config, Device};
 
 #[derive(Debug, serde::Deserialize)]
 struct Vehicle {
@@ -10,7 +10,7 @@ struct Vehicle {
 
 pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
     publish_discovery(mqtt_client);
-    
+
     let data = get_data(client).await.unwrap_or_else(|_| vec![]);
     let cars_found = finder(data);
 
