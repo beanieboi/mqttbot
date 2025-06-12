@@ -1,3 +1,4 @@
+use crate::config::HoymilesConfig;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use sha2::{Digest, Sha256};
@@ -17,16 +18,16 @@ impl HoymilesState {
         }
     }
 
-    pub async fn refresh(&mut self, client: &reqwest::Client) {
+    pub async fn refresh(&mut self, client: &reqwest::Client, config: &HoymilesConfig) {
         info!("Refreshing Hoymiles state (token and SID)...");
 
         self.sid = None;
 
-        self.token = request_new_token(client).await;
+        self.token = request_new_token(client, config).await;
 
         if let Some(token) = &self.token {
             info!("Successfully obtained new token during refresh.");
-            self.sid = get_sid(client, token).await;
+            self.sid = get_sid(client, token, config).await;
             if self.sid.is_some() {
                 info!("Successfully obtained new SID during refresh.");
             } else {
@@ -38,11 +39,11 @@ impl HoymilesState {
     }
 }
 
-pub async fn init(client: &reqwest::Client) -> HoymilesState {
+pub async fn init(client: &reqwest::Client, config: &HoymilesConfig) -> HoymilesState {
     let mut state = HoymilesState::new();
     if state.token.is_none() {
         info!("No token found. Requesting a new one.");
-        state.token = request_new_token(client).await;
+        state.token = request_new_token(client, config).await;
         if state.token.is_some() {
             info!("Successfully obtained new token");
         } else {
@@ -52,7 +53,7 @@ pub async fn init(client: &reqwest::Client) -> HoymilesState {
     if let Some(token) = &state.token {
         if state.sid.is_none() {
             info!("No sid found. Requesting a new one.");
-            state.sid = get_sid(client, token).await;
+            state.sid = get_sid(client, token, config).await;
             if state.sid.is_some() {
                 info!("Successfully obtained SID");
             } else {
@@ -64,27 +65,11 @@ pub async fn init(client: &reqwest::Client) -> HoymilesState {
     state
 }
 
-async fn request_new_token(client: &reqwest::Client) -> Option<String> {
-    let username = match std::env::var("HOYMILES_USERNAME") {
-        Ok(u) => u,
-        Err(e) => {
-            error!("Failed to get HOYMILES_USERNAME: {}", e);
-            return None;
-        }
-    };
-    let password = match std::env::var("HOYMILES_PASSWORD") {
-        Ok(p) => p,
-        Err(e) => {
-            error!("Failed to get HOYMILES_PASSWORD: {}", e);
-            return None;
-        }
-    };
-
+async fn request_new_token(client: &reqwest::Client, config: &HoymilesConfig) -> Option<String> {
     // Get region
-    let region_url = "https://euapi.hoymiles.com/iam/pub/0/c/region_c";
     let region_resp = match client
-        .post(region_url)
-        .json(&serde_json::json!({ "email": username }))
+        .post(&config.region_url)
+        .json(&serde_json::json!({ "email": config.username }))
         .send()
         .await
     {
@@ -112,9 +97,9 @@ async fn request_new_token(client: &reqwest::Client) -> Option<String> {
     };
 
     // Generate password hash
-    let md5_hash = format!("{:x}", md5::compute(password.as_bytes()));
+    let md5_hash = format!("{:x}", md5::compute(config.password.as_bytes()));
     let mut hasher = Sha256::new();
-    hasher.update(password.as_bytes());
+    hasher.update(config.password.as_bytes());
     let sha256_hash = BASE64.encode(hasher.finalize());
     let encoded_password = format!("{}.{}", md5_hash, sha256_hash);
 
@@ -123,7 +108,7 @@ async fn request_new_token(client: &reqwest::Client) -> Option<String> {
     let login_resp = match client
         .post(login_url)
         .json(&serde_json::json!({
-            "user_name": username,
+            "user_name": config.username,
             "password": encoded_password
         }))
         .send()
@@ -153,10 +138,9 @@ async fn request_new_token(client: &reqwest::Client) -> Option<String> {
     }
 }
 
-async fn get_sid(client: &reqwest::Client, token: &str) -> Option<String> {
-    let url = "https://neapi.hoymiles.com/pvmc/api/0/station/select_by_page_c";
+async fn get_sid(client: &reqwest::Client, token: &str, config: &HoymilesConfig) -> Option<String> {
     let resp = match client
-        .post(url)
+        .post(&config.station_select_url)
         .header("Authorization", token)
         .json(&serde_json::json!({
             "page": 1,

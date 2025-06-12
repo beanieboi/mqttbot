@@ -1,5 +1,5 @@
+use crate::config::MqttConfig;
 use paho_mqtt::ConnectOptions;
-use std::env;
 
 pub struct Payload {
     pub topic_suffix: String,
@@ -13,11 +13,10 @@ impl Payload {
     }
 }
 
-pub fn new_mqtt_client() -> paho_mqtt::Client {
-    let host = env::var("MQTT_HOST").unwrap_or_else(|_| "tcp://192.168.1.5:1883".to_string());
+pub fn new_mqtt_client(config: &MqttConfig) -> paho_mqtt::Client {
     let co = paho_mqtt::CreateOptionsBuilder::new()
-        .server_uri(host)
-        .client_id("mqttbot")
+        .server_uri(&config.host)
+        .client_id(&config.client_id)
         .finalize();
 
     paho_mqtt::Client::new(co).unwrap_or_else(|err| {
@@ -25,15 +24,10 @@ pub fn new_mqtt_client() -> paho_mqtt::Client {
     })
 }
 
-pub fn conn_opts() -> ConnectOptions {
-    let username =
-        env::var("MQTT_USERNAME").unwrap_or_else(|_| panic!("MQTT_USERNAME must be set"));
-    let password =
-        env::var("MQTT_PASSWORD").unwrap_or_else(|_| panic!("MQTT_PASSWORD must be set"));
-
+pub fn conn_opts(config: &MqttConfig) -> ConnectOptions {
     paho_mqtt::ConnectOptionsBuilder::new()
-        .user_name(username)
-        .password(password)
-        .connect_timeout(std::time::Duration::from_millis(100))
+        .user_name(&config.username)
+        .password(&config.password)
+        .connect_timeout(config.connect_timeout())
         .finalize()
 }

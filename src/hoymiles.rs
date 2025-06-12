@@ -1,3 +1,4 @@
+use crate::config::HoymilesConfig;
 use crate::ha_discovery::{
     Device, create_battery_sensor, create_energy_sensor, publish_sensor_config,
 };
@@ -112,6 +113,7 @@ pub async fn run(
     mqtt_client: &paho_mqtt::Client,
     client: &reqwest::Client,
     state: &mut HoymilesState,
+    config: &HoymilesConfig,
 ) {
     publish_discovery(mqtt_client);
 
@@ -123,7 +125,7 @@ pub async fn run(
                 }
                 Err(StationDataError::TokenExpired) => {
                     error!("Hoymiles token has expired. State refresh needed.");
-                    state.refresh(client).await;
+                    state.refresh(client, config).await;
                 }
                 Err(StationDataError::HttpRequestFailed(e)) => {
                     error!("Failed to send request to Hoymiles API: {}", e);

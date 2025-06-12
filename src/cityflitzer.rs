@@ -1,3 +1,4 @@
+use crate::config::CityflitzerConfig;
 use crate::ha_discovery::{Device, create_sensor, publish_sensor_config};
 use anyhow::Result;
 use chrono::{DurationRound, Utc};
@@ -8,11 +9,15 @@ struct Vehicle {
     distance: f64,
 }
 
-pub async fn run(mqtt_client: &paho_mqtt::Client, client: &reqwest::Client) {
+pub async fn run(
+    mqtt_client: &paho_mqtt::Client,
+    client: &reqwest::Client,
+    config: &CityflitzerConfig,
+) {
     publish_discovery(mqtt_client);
 
-    let data = get_data(client).await.unwrap_or_else(|_| vec![]);
-    let cars_found = finder(data);
+    let data = get_data(client, config).await.unwrap_or_else(|_| vec![]);
+    let cars_found = finder(data, config);
 
     publish(
         mqtt_client,
@@ -67,32 +72,31 @@ fn publish_discovery(mqtt_client: &paho_mqtt::Client) {
     }
 }
 
-fn finder(vehicles: Vec<Vehicle>) -> usize {
-    let max_distance = 500.0;
+fn finder(vehicles: Vec<Vehicle>, config: &CityflitzerConfig) -> usize {
     vehicles
         .iter()
-        .filter(|c| c.distance < max_distance)
+        .filter(|c| c.distance < config.max_distance)
         .count()
 }
 
-async fn get_data(client: &reqwest::Client) -> Result<Vec<Vehicle>> {
-    let lat = 51.32032033409821;
-    let long = 12.36535400104385;
+async fn get_data(client: &reqwest::Client, config: &CityflitzerConfig) -> Result<Vec<Vehicle>> {
     let now = chrono::Utc::now();
     let start = now.duration_trunc(chrono::Duration::hours(1)).unwrap();
     let end = start + chrono::Duration::hours(1);
 
     let url = format!(
-        "https://de1.cantamen.de/casirest/v3/pointsofinterest?placeIsFixed=false&lat={lat}&lng={lng}&range=30000&start={start}&end={end}&sort=distance",
-        lat = lat,
-        lng = long,
-        start = start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-        end = end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        "{}/pointsofinterest?placeIsFixed=false&lat={}&lng={}&range={}&start={}&end={}&sort=distance",
+        config.base_url,
+        config.latitude,
+        config.longitude,
+        config.search_range,
+        start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
     );
 
     let resp = client
         .get(url)
-        .header("X-API-KEY", "45d38969-0086-978d-dc06-7959b0d2fe79")
+        .header("X-API-KEY", &config.api_key)
         .send()
         .await?
         .json::<Vec<Vehicle>>()
