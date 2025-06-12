@@ -5,7 +5,6 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub struct Config {
     pub mqtt: MqttConfig,
-    pub hoymiles: HoymilesConfig,
     pub cityflitzer: CityflitzerConfig,
     pub general: GeneralConfig,
 }
@@ -17,14 +16,6 @@ pub struct MqttConfig {
     pub password: String,
     pub connect_timeout_ms: u64,
     pub client_id: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct HoymilesConfig {
-    pub username: String,
-    pub password: String,
-    pub region_url: String,
-    pub station_select_url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +40,6 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         Ok(Config {
             mqtt: MqttConfig::from_env()?,
-            hoymiles: HoymilesConfig::from_env()?,
             cityflitzer: CityflitzerConfig::from_env()?,
             general: GeneralConfig::from_env()?,
         })
@@ -71,22 +61,6 @@ impl MqttConfig {
 
     pub fn connect_timeout(&self) -> Duration {
         Duration::from_millis(self.connect_timeout_ms)
-    }
-}
-
-impl HoymilesConfig {
-    fn from_env() -> Result<Self> {
-        Ok(HoymilesConfig {
-            username: env::var("HOYMILES_USERNAME")
-                .context("HOYMILES_USERNAME environment variable is required")?,
-            password: env::var("HOYMILES_PASSWORD")
-                .context("HOYMILES_PASSWORD environment variable is required")?,
-            region_url: env::var("HOYMILES_REGION_URL")
-                .unwrap_or_else(|_| "https://euapi.hoymiles.com/iam/pub/0/c/region_c".to_string()),
-            station_select_url: env::var("HOYMILES_STATION_SELECT_URL").unwrap_or_else(|_| {
-                "https://neapi.hoymiles.com/pvmc/api/0/station/select_by_page_c".to_string()
-            }),
-        })
     }
 }
 

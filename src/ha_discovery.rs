@@ -42,11 +42,6 @@ impl SensorConfig {
         }
     }
 
-    pub fn with_unit(mut self, unit: impl Into<String>) -> Self {
-        self.unit_of_measurement = Some(unit.into());
-        self
-    }
-
     pub fn with_device_class(mut self, device_class: impl Into<String>) -> Self {
         self.device_class = Some(device_class.into());
         self
@@ -117,28 +112,4 @@ pub fn create_sensor(
     device: Device,
 ) -> SensorConfig {
     SensorConfig::new(name, unique_id, state_topic, device)
-}
-
-pub fn create_battery_sensor(
-    name: impl Into<String>,
-    unique_id: impl Into<String>,
-    state_topic: impl Into<String>,
-    device: Device,
-) -> SensorConfig {
-    SensorConfig::new(name, unique_id, state_topic, device)
-        .with_device_class("battery")
-        .with_state_class("measurement")
-        .with_unit("%")
-}
-
-pub fn create_energy_sensor(
-    name: impl Into<String>,
-    unique_id: impl Into<String>,
-    state_topic: impl Into<String>,
-    device: Device,
-) -> SensorConfig {
-    SensorConfig::new(name, unique_id, state_topic, device)
-        .with_device_class("energy")
-        .with_state_class("total_increasing")
-        .with_unit("Wh")
 }

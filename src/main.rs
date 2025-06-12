@@ -5,8 +5,6 @@ use tracing::{error, info, warn};
 mod cityflitzer;
 mod config;
 mod ha_discovery;
-mod hoymiles;
-mod hoymiles_state;
 mod mqtt;
 
 async fn connect_with_retry(config: &config::Config) -> Option<paho_mqtt::Client> {
@@ -60,14 +58,14 @@ async fn main() {
             .timeout(config.general.http_timeout())
             .build()
             .expect("failed to construct http client");
-        let mut hm_state = hoymiles_state::init(&http_client, &config.hoymiles).await;
 
         loop {
             if let Some(mqtt_client) = connect_with_retry(&config).await {
-                let _ = tokio::join!(
-                    cityflitzer::run(&mqtt_client, &http_client, &config.cityflitzer),
-                    hoymiles::run(&mqtt_client, &http_client, &mut hm_state, &config.hoymiles)
-                );
+                let _ = tokio::join!(cityflitzer::run(
+                    &mqtt_client,
+                    &http_client,
+                    &config.cityflitzer
+                ),);
 
                 if mqtt_client.is_connected() {
                     if let Err(e) = mqtt_client.disconnect(paho_mqtt::DisconnectOptions::default())
