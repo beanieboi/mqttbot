@@ -1,0 +1,13 @@
+Package: mqttbot
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.17), libssl3 (>= 3.0.0)
+Maintainer: beanieboi <ich@abwesend.com>
+Description: MQTT data publisher for Home Assistant
+ A Rust-based MQTT data publisher that periodically queries third-party APIs
+ and publishes metrics to MQTT for Home Assistant integration.
+ .
+ This daemon runs as a systemd service and requires MQTT broker credentials
+ and API credentials to be configured via environment variables.

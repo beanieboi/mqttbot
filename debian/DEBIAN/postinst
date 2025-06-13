@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+if ! id mqttbot >/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /bin/false mqttbot
+fi
+
+chown root:root /usr/bin/mqttbot
+chmod 755 /usr/bin/mqttbot
+chown root:root /etc/mqttbot/mqttbot.env
+chmod 600 /etc/mqttbot/mqttbot.env
+
+systemctl daemon-reload
+systemctl enable mqttbot.service
+
+echo "mqttbot installed successfully!"
+echo "Please edit /etc/mqttbot/mqttbot.env with your credentials"
+echo "Then start the service with: systemctl start mqttbot"
+
+exit 0

@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+
+systemctl stop mqttbot.service || true
+systemctl disable mqttbot.service || true
+
+exit 0

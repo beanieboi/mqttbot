@@ -1,0 +1,31 @@
+[Unit]
+Description=MQTT Bot - Home Assistant Data Publisher
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mqttbot
+Group=mqttbot
+EnvironmentFile=/etc/mqttbot/mqttbot.env
+ExecStart=/usr/bin/mqttbot
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mqttbot
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
