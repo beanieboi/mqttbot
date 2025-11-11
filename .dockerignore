@@ -1,0 +1,21 @@
+# Build artifacts
+target/
+dist/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+.claude/
+
+# IDE
+.vscode/
+.idea/
+
+# Debian packages
+*.deb
+
+# Environment files
+.env
