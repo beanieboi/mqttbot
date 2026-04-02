@@ -27,7 +27,7 @@ pub fn new_mqtt_client(config: &MqttConfig) -> paho_mqtt::Client {
 pub fn conn_opts(config: &MqttConfig) -> ConnectOptions {
     paho_mqtt::ConnectOptionsBuilder::new()
         .user_name(&config.username)
-        .password(&config.password)
+        .password(config.password.as_str())
         .connect_timeout(config.connect_timeout())
         .finalize()
 }
