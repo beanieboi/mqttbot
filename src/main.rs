@@ -67,11 +67,10 @@ async fn main() {
                     &config.cityflitzer
                 ),);
 
-                if mqtt_client.is_connected() {
-                    if let Err(e) = mqtt_client.disconnect(paho_mqtt::DisconnectOptions::default())
-                    {
-                        error!("Error disconnecting from MQTT broker: {:?}", e);
-                    }
+                if mqtt_client.is_connected()
+                    && let Err(e) = mqtt_client.disconnect(paho_mqtt::DisconnectOptions::default())
+                {
+                    error!("Error disconnecting from MQTT broker: {:?}", e);
                 }
             } else {
                 warn!("Skipping this iteration due to MQTT connection failure");
