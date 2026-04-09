@@ -10,7 +10,7 @@ anyhow = "1.0.71"
 base64 = "0.22.1"
 chrono = { version = "0.4.24", features = ["clock"] }
 futures = "0.3.28"
-md5 = "0.7.0"
+md5 = "0.8.0"
 paho-mqtt = "0.14.0"
 plist = "1.4.3"
 reqwest = { version = "0.13.2", features = ["json"] }
