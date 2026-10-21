@@ -7,18 +7,17 @@ mod config;
 mod ha_discovery;
 mod mqtt;
 
-async fn connect_with_retry(config: &config::Config) -> Option<paho_mqtt::Client> {
+async fn connect_with_retry(mqtt_client: &paho_mqtt::Client, config: &config::Config) -> bool {
     let mut retry_count = 0;
     let mut backoff = config.general.initial_backoff().as_millis() as u64;
 
     loop {
-        let mqtt_client = crate::mqtt::new_mqtt_client(&config.mqtt);
         let conn_opts = crate::mqtt::conn_opts(&config.mqtt);
 
         match mqtt_client.connect(conn_opts) {
             Ok(_) => {
                 info!("Successfully connected to MQTT broker");
-                return Some(mqtt_client);
+                return true;
             }
             Err(e) => {
                 retry_count += 1;
@@ -27,7 +26,7 @@ async fn connect_with_retry(config: &config::Config) -> Option<paho_mqtt::Client
                         "Failed to connect to MQTT broker after {} retries: {:?}",
                         config.general.max_retries, e
                     );
-                    return None;
+                    return false;
                 }
                 warn!(
                     "Failed to connect to MQTT broker (attempt {}/{}): {:?}. Retrying in {}ms...",
@@ -59,8 +58,13 @@ async fn main() {
             .build()
             .expect("failed to construct http client");
 
+        // Keep a single client for the lifetime of the process. paho.mqtt.c
+        // leaks a socketpair whenever its last client is destroyed, so creating
+        // a new client per iteration eventually exhausts the fd limit.
+        let mqtt_client = crate::mqtt::new_mqtt_client(&config.mqtt);
+
         loop {
-            if let Some(mqtt_client) = connect_with_retry(&config).await {
+            if connect_with_retry(&mqtt_client, &config).await {
                 let _ = tokio::join!(cityflitzer::run(
                     &mqtt_client,
                     &http_client,
