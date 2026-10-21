@@ -5,6 +5,7 @@ use tracing::{error, info, warn};
 mod cityflitzer;
 mod config;
 mod ha_discovery;
+mod health;
 mod mqtt;
 
 async fn connect_with_retry(mqtt_client: &paho_mqtt::Client, config: &config::Config) -> bool {
@@ -51,6 +52,13 @@ async fn main() {
         }
     };
 
+    if std::env::args().nth(1).as_deref() == Some("healthcheck") {
+        std::process::exit(health::check(
+            &config.general.health_file,
+            config.general.health_max_age(),
+        ));
+    }
+
     let forever = task::spawn(async move {
         let mut interval = time::interval(config.general.refresh_interval());
         let http_client = reqwest::Client::builder()
@@ -70,6 +78,12 @@ async fn main() {
                     &http_client,
                     &config.cityflitzer
                 ),);
+
+                // cityflitzer::run panics if a publish fails, so reaching this
+                // point means the broker received this iteration's data.
+                if let Err(e) = health::record_success(&config.general.health_file) {
+                    warn!("Failed to write health file: {:?}", e);
+                }
 
                 if mqtt_client.is_connected()
                     && let Err(e) = mqtt_client.disconnect(paho_mqtt::DisconnectOptions::default())

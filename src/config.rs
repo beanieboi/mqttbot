@@ -34,6 +34,7 @@ pub struct GeneralConfig {
     pub http_timeout_ms: u64,
     pub max_retries: u32,
     pub initial_backoff_ms: u64,
+    pub health_file: String,
 }
 
 impl Config {
@@ -86,6 +87,8 @@ impl GeneralConfig {
             http_timeout_ms: parse_env_var("HTTP_TIMEOUT_MS", 5000)?,
             max_retries: parse_env_var("MAX_RETRIES", 10)?,
             initial_backoff_ms: parse_env_var("INITIAL_BACKOFF_MS", 10000)?,
+            health_file: env::var("HEALTH_FILE")
+                .unwrap_or_else(|_| "/tmp/mqttbot-healthy".to_string()),
         })
     }
 
@@ -99,6 +102,11 @@ impl GeneralConfig {
 
     pub fn initial_backoff(&self) -> Duration {
         Duration::from_millis(self.initial_backoff_ms)
+    }
+
+    /// How long without a successful publish before the healthcheck fails.
+    pub fn health_max_age(&self) -> Duration {
+        self.refresh_interval() * 5
     }
 }
 
@@ -138,6 +146,7 @@ mod tests {
             http_timeout_ms: 5000,
             max_retries: 10,
             initial_backoff_ms: 10000,
+            health_file: "/tmp/mqttbot-healthy".to_string(),
         };
 
         assert_eq!(general.refresh_interval(), Duration::from_secs(120));
